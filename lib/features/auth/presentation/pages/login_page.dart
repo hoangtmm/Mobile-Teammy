@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../../../timeline/presentation/pages/timeline_page.dart';
+import '../../../../core/constants/api_constants.dart';
+import '../../../../core/localization/app_language.dart';
 import '../../data/datasources/auth_remote_data_source.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../domain/entities/auth_exception.dart';
 import '../../domain/entities/auth_session.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, required this.initialLanguage});
+
+  final AppLanguage initialLanguage;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -21,6 +25,7 @@ class _LoginPageState extends State<LoginPage> {
     'Da Nang Campus',
   ];
   late final AuthRepository _authRepository;
+  late AppLanguage _language;
   bool _isLoading = false;
   String? _errorMessage;
   AuthSession? _session;
@@ -28,9 +33,10 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
+    _language = widget.initialLanguage;
     _authRepository = AuthRepository(
       remoteDataSource: AuthRemoteDataSource(
-        baseUrl: 'https://teammy-api.onrender.com',
+        baseUrl: kApiBaseUrl,
       ),
     );
   }
@@ -49,13 +55,20 @@ class _LoginPageState extends State<LoginPage> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Welcome ${session.displayName}!'),
+          content: Text(
+            _translate('Chào mừng ${session.displayName}!', 'Welcome ${session.displayName}!'),
+          ),
         ),
       );
       await Future<void>.delayed(const Duration(milliseconds: 300));
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const TimelinePage()),
+        MaterialPageRoute(
+          builder: (_) => TimelinePage(
+            session: session,
+            initialLanguage: _language,
+          ),
+        ),
       );
     } on AuthException catch (error) {
       if (!mounted) return;
@@ -75,6 +88,9 @@ class _LoginPageState extends State<LoginPage> {
       }
     }
   }
+
+  String _translate(String vi, String en) =>
+      _language == AppLanguage.vi ? vi : en;
 
   @override
   Widget build(BuildContext context) {
@@ -108,6 +124,7 @@ class _LoginPageState extends State<LoginPage> {
                               },
                               isLoading: _isLoading,
                               onGoogleTap: _handleGoogleSignIn,
+                              language: _language,
                               errorMessage: _errorMessage,
                               session: _session,
                             ),
@@ -179,6 +196,7 @@ class _LoginCard extends StatelessWidget {
     required this.onCampusChanged,
     required this.isLoading,
     required this.onGoogleTap,
+    required this.language,
     this.errorMessage,
     this.session,
   });
@@ -188,11 +206,14 @@ class _LoginCard extends StatelessWidget {
   final ValueChanged<String?> onCampusChanged;
   final bool isLoading;
   final VoidCallback onGoogleTap;
+  final AppLanguage language;
   final String? errorMessage;
   final AuthSession? session;
 
   @override
   Widget build(BuildContext context) {
+    String tr(String vi, String en) =>
+        language == AppLanguage.vi ? vi : en;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 26),
       decoration: BoxDecoration(
@@ -209,28 +230,29 @@ class _LoginCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Welcome back',
+          Text(
+            tr('Chào mừng trở lại', 'Welcome back'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w800,
               color: Color(0xFF1C2845),
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Sign in with your Google account to access Teammy',
+          Text(
+            tr('Đăng nhập bằng Google để truy cập Teammy',
+                'Sign in with your Google account to access Teammy'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 14,
               color: Color(0xFF62718D),
             ),
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Select campus',
-            style: TextStyle(
+          Text(
+            tr('Chọn cơ sở', 'Select campus'),
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: Color(0xFF222D54),
@@ -264,7 +286,7 @@ class _LoginCard extends StatelessWidget {
                 borderSide: const BorderSide(color: Color(0xFF5161F1)),
               ),
             ),
-            hint: const Text('Select Campus'),
+            hint: Text(tr('Chọn cơ sở', 'Select Campus')),
             icon: const Icon(Icons.keyboard_arrow_down_rounded),
           ),
           const SizedBox(height: 20),
@@ -304,10 +326,10 @@ class _LoginCard extends StatelessWidget {
                       width: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text(
+                  : Text(
                       key: ValueKey('label'),
-                      'Continue with Google',
-                      style: TextStyle(
+                      tr('Tiếp tục với Google', 'Continue with Google'),
+                      style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF1E2448),
@@ -329,7 +351,8 @@ class _LoginCard extends StatelessWidget {
             const SizedBox(height: 12),
           ] else if (session != null) ...[
             Text(
-              'Signed in as ${session!.displayName}',
+              tr('Đã đăng nhập với ${session!.displayName}',
+                  'Signed in as ${session!.displayName}'),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 13,
@@ -339,10 +362,11 @@ class _LoginCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-          const Text(
-            'By continuing, you agree to Teammy\'s terms of use.',
+          Text(
+            tr('Bằng cách tiếp tục, bạn đồng ý với điều khoản sử dụng của Teammy.',
+                'By continuing, you agree to Teammy\'s terms of use.'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
               color: Color(0xFF8A92B2),
             ),

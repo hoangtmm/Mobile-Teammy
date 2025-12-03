@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../../../core/widgets/teammy_logo.dart';
-
-enum AppLanguage { vi, en }
+import '../../../../core/localization/app_language.dart';
 
 class OnboardingSlide {
   const OnboardingSlide({
@@ -126,7 +125,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         onPressed: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => const LoginPage(),
+                              builder: (_) =>
+                                  LoginPage(initialLanguage: _language),
                             ),
                           );
                         },

@@ -1,7 +1,6 @@
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
-
+import '../../../../core/constants/api_constants.dart';
 import '../models/login_response.dart';
 
 class AuthRemoteDataSource {
@@ -14,7 +13,7 @@ class AuthRemoteDataSource {
   final http.Client _httpClient;
 
   Future<LoginResponse> exchangeIdToken(String idToken) async {
-    final uri = Uri.parse('$baseUrl/api/auth/login');
+    final uri = Uri.parse('$baseUrl${ApiPath.authLogin}');
     final response = await _httpClient.post(
       uri,
       headers: const {
