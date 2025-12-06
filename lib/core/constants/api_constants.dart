@@ -38,6 +38,16 @@ class ApiPath {
   static String usersProfileByUserId(String userId) =>
       '/api/users/$userId/profile';
 
+  /// Chat endpoints.
+  static const chatConversations = '/api/chat/conversations';
+  static String chatSessionMessages(String sessionId) =>
+      '/api/chat/sessions/$sessionId/messages';
+  static String groupChatMessages(String groupId) =>
+      '/api/groups/$groupId/chat/messages';
+  static String chatSessionSend(String sessionId) =>
+      '/api/chat/sessions/$sessionId/messages';
+  static const chatHub = '/groupChatHub';
+
   /// Invitation endpoints.
   static const invitationsList = '/api/invitations';
   static String invitationsDetail(String id) => '/api/invitations/$id';

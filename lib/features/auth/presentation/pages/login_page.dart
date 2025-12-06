@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../timeline/presentation/pages/timeline_page.dart';
+import '../../../timeline/presentation/pages/group_page.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/localization/app_language.dart';
 import '../../data/datasources/auth_remote_data_source.dart';
@@ -53,18 +53,11 @@ class _LoginPageState extends State<LoginPage> {
       setState(() {
         _session = session;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _translate('Chào mừng ${session.displayName}!', 'Welcome ${session.displayName}!'),
-          ),
-        ),
-      );
       await Future<void>.delayed(const Duration(milliseconds: 300));
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => TimelinePage(
+          builder: (_) => GroupPage(
             session: session,
             initialLanguage: _language,
           ),
@@ -250,14 +243,7 @@ class _LoginCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          Text(
-            tr('Chọn cơ sở', 'Select campus'),
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF222D54),
-            ),
-          ),
+        
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
             value: selectedCampus,
@@ -349,19 +335,7 @@ class _LoginCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-          ] else if (session != null) ...[
-            Text(
-              tr('Đã đăng nhập với ${session!.displayName}',
-                  'Signed in as ${session!.displayName}'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF5161F1),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
+          ] ,
           Text(
             tr('Bằng cách tiếp tục, bạn đồng ý với điều khoản sử dụng của Teammy.',
                 'By continuing, you agree to Teammy\'s terms of use.'),
