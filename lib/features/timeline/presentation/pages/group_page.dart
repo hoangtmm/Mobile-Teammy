@@ -8,11 +8,12 @@ import '../../../auth/data/repositories/auth_repository.dart';
 import '../../../auth/data/repositories/user_repository.dart';
 import '../../../auth/domain/entities/auth_session.dart';
 import '../../../auth/domain/entities/user_profile.dart';
+import '../../../chat/presentation/pages/chat_page.dart';
 import '../../../onboarding/presentation/pages/onboarding_page.dart';
 import 'account_settings_page.dart';
 
-class TimelinePage extends StatefulWidget {
-  const TimelinePage({
+class GroupPage extends StatefulWidget {
+  const GroupPage({
     super.key,
     required this.session,
     required this.initialLanguage,
@@ -22,10 +23,10 @@ class TimelinePage extends StatefulWidget {
   final AppLanguage initialLanguage;
 
   @override
-  State<TimelinePage> createState() => _TimelinePageState();
+  State<GroupPage> createState() => _GroupPageState();
 }
 
-class _TimelinePageState extends State<TimelinePage> {
+class _GroupPageState extends State<GroupPage> {
   int _selectedIndex = 0;
   late final UserRepository _userRepository;
   late final AuthRepository _authRepository;
@@ -37,9 +38,8 @@ class _TimelinePageState extends State<TimelinePage> {
   bool _isUserSheetOpen = false;
 
   final _tabs = const [
-    _BottomTab(icon: Icons.menu_rounded, labelVi: 'Timeline', labelEn: 'Timeline'),
+    _BottomTab(icon: Icons.view_kanban_outlined, labelVi: 'Nhóm', labelEn: 'Team'),
     _BottomTab(icon: Icons.check_box_outlined, labelVi: 'Việc của tôi', labelEn: 'My Tasks'),
-    _BottomTab(icon: Icons.view_kanban_outlined, labelVi: 'Teams', labelEn: 'Teams'),
     _BottomTab(icon: Icons.search, labelVi: 'Tìm kiếm', labelEn: 'Search'),
     _BottomTab(icon: Icons.chat_bubble_outline_rounded, labelVi: 'WorkChat', labelEn: 'WorkChat'),
   ];
@@ -142,7 +142,84 @@ class _TimelinePageState extends State<TimelinePage> {
     }
   }
 
-  String _translate(String vi, String en) => _language == AppLanguage.vi ? vi : en;
+  String _translate(String vi, String en) =>
+      _language == AppLanguage.vi ? vi : en;
+
+  Widget _buildTabBody() {
+    switch (_selectedIndex) {
+      case 3:
+        return ChatPage(
+          session: widget.session,
+          language: _language,
+        );
+      case 1:
+        return _buildPlaceholder(
+          icon: Icons.check_box_outlined,
+          title: _translate('Công việc', 'My Tasks'),
+          description: _translate(
+            'Tính năng đang được xây dựng.',
+            'This area is coming soon.',
+          ),
+        );
+      case 2:
+        return _buildPlaceholder(
+          icon: Icons.search,
+          title: _translate('Tìm kiếm', 'Search'),
+          description: _translate(
+            'Chúng tôi sẽ sớm bổ sung khu vực này.',
+            'We are working on this section.',
+          ),
+        );
+      default:
+        return _buildPlaceholder(
+          icon: Icons.view_kanban_outlined,
+          title: _translate('Nhóm', 'Group space'),
+          description: _translate(
+            'Bảng tổng quan nhóm sẽ sớm xuất hiện.',
+            'Group overview will be available soon.',
+          ),
+        );
+    }
+  }
+
+  Widget _buildPlaceholder({
+    required IconData icon,
+    required String title,
+    required String description,
+  }) {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFFF7F7F7),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 48, color: const Color(0xFFCBD5F0)),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1F2A37),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: 260,
+              child: Text(
+                description,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -164,25 +241,23 @@ class _TimelinePageState extends State<TimelinePage> {
           backgroundColor: const Color(0xFFF7F7F7),
           body: Column(
             children: [
-              _TimelineAppBar(
-                profile: _profile,
-                isLoading: _profileLoading,
-                onAvatarTap: _openUserSheet,
-              ),
-              if (_profileFailed)
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text(
-                    _translate('Không thể tải thông tin người dùng', 'Unable to load profile'),
-                    style: const TextStyle(color: Colors.redAccent),
+              if (_selectedIndex != 3) ...[
+                _GroupAppBar(
+                  profile: _profile,
+                  isLoading: _profileLoading,
+                  onAvatarTap: _openUserSheet,
+                  title: _translate('Nhóm', 'Group'),
+                ),
+                if (_profileFailed)
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(
+                      _translate('Không có thông tin người dùng', 'Unable to load profile'),
+                      style: const TextStyle(color: Colors.redAccent),
+                    ),
                   ),
-                ),
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  color: const Color(0xFFF7F7F7),
-                ),
-              ),
+              ],
+              Expanded(child: _buildTabBody()),
             ],
           ),
           bottomNavigationBar: SafeArea(
@@ -229,17 +304,18 @@ class _TimelinePageState extends State<TimelinePage> {
   }
 }
 
-class _TimelineAppBar extends StatelessWidget {
-  const _TimelineAppBar({
+class _GroupAppBar extends StatelessWidget {
+  const _GroupAppBar({
     required this.profile,
     required this.isLoading,
     required this.onAvatarTap,
+     required this.title,   
   });
 
   final UserProfile? profile;
   final bool isLoading;
   final VoidCallback onAvatarTap;
-
+  final String title; 
   @override
   Widget build(BuildContext context) {
     final initials =
@@ -276,8 +352,8 @@ class _TimelineAppBar extends StatelessWidget {
                     : null,
               ),
             ),
-            const Text(
-              'Timeline',
+             Text(
+                title,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
@@ -640,3 +716,5 @@ class _BottomTab {
   final String labelVi;
   final String labelEn;
 }
+
+
