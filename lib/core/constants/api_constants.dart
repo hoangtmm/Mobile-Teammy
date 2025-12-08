@@ -1,4 +1,4 @@
-﻿const String kApiBaseUrl = 'https://teammy-api.onrender.com';
+﻿const String kApiBaseUrl = 'https://api.vps-sep490.io.vn';
 
 /// Centralized list of API endpoints mirroring the shared API spec.
 class ApiPath {
