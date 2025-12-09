@@ -1,0 +1,54 @@
+import '../../domain/entities/group.dart';
+import '../../domain/entities/major.dart';
+import '../../domain/entities/skill.dart';
+import '../../domain/repositories/group_repository.dart';
+import '../datasources/group_remote_data_source.dart';
+
+class GroupRepositoryImpl implements GroupRepository {
+  final GroupRemoteDataSource remoteDataSource;
+
+  GroupRepositoryImpl({required this.remoteDataSource});
+
+  @override
+  Future<List<Group>> fetchMyGroups(String accessToken) async {
+    return await remoteDataSource.fetchMyGroups(accessToken);
+  }
+
+  @override
+  Future<Map<String, dynamic>> fetchGroupTracking(
+    String accessToken,
+    String groupId,
+  ) async {
+    return await remoteDataSource.fetchGroupTracking(accessToken, groupId);
+  }
+
+  @override
+  Future<List<Major>> fetchMajors(String accessToken) async {
+    return await remoteDataSource.fetchMajors(accessToken);
+  }
+
+  @override
+  Future<List<Skill>> fetchSkillsByMajor(
+    String accessToken,
+    String majorName,
+  ) async {
+    return await remoteDataSource.fetchSkillsByMajor(accessToken, majorName);
+  }
+
+  @override
+  Future<Group> createGroup(
+    String accessToken, {
+    required String name,
+    required String description,
+    required int maxMembers,
+    required List<String> skills,
+  }) async {
+    return await remoteDataSource.createGroup(
+      accessToken,
+      name: name,
+      description: description,
+      maxMembers: maxMembers,
+      skills: skills,
+    );
+  }
+}

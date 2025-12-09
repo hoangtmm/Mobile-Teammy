@@ -173,7 +173,10 @@ class _MainPageState extends State<MainPage> {
       case 2:
         return ForumPage(language: _language);
       default:
-        return GroupPage(language: _language);
+        return GroupPage(
+          session: widget.session,
+          language: _language,
+        );
     }
   }
 

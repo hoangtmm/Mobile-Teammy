@@ -28,6 +28,15 @@ class ApiPath {
 
   /// Group endpoints.
   static const groupMembership = '/api/groups/membership';
+  static const groupsMyGroups = '/api/groups/my';
+  static String groupTracking(String groupId) =>
+      '/api/groups/$groupId/tracking/reports/project';
+  static const groupsCreate = '/api/groups';
+
+  /// Major endpoints.
+  static const majors = '/api/majors';
+  static String skillsByMajor(String majorName) =>
+      '/api/skills?major=$majorName&pageSize=100';
 
   /// User endpoints.
   static const usersList = '/api/users';
