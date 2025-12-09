@@ -9,11 +9,14 @@ import '../../../auth/data/repositories/user_repository.dart';
 import '../../../auth/domain/entities/auth_session.dart';
 import '../../../auth/domain/entities/user_profile.dart';
 import '../../../chat/presentation/pages/chat_page.dart';
+import '../../../forum/presentation/pages/forum_page.dart';
+import '../../../tasks/presentation/pages/tasks_page.dart';
+import '../../../group/presentation/pages/group_page.dart';
 import '../../../onboarding/presentation/pages/onboarding_page.dart';
 import 'account_settings_page.dart';
 
-class GroupPage extends StatefulWidget {
-  const GroupPage({
+class MainPage extends StatefulWidget {
+  const MainPage({
     super.key,
     required this.session,
     required this.initialLanguage,
@@ -23,10 +26,10 @@ class GroupPage extends StatefulWidget {
   final AppLanguage initialLanguage;
 
   @override
-  State<GroupPage> createState() => _GroupPageState();
+  State<MainPage> createState() => _MainPageState();
 }
 
-class _GroupPageState extends State<GroupPage> {
+class _MainPageState extends State<MainPage> {
   int _selectedIndex = 0;
   late final UserRepository _userRepository;
   late final AuthRepository _authRepository;
@@ -38,9 +41,9 @@ class _GroupPageState extends State<GroupPage> {
   bool _isUserSheetOpen = false;
 
   final _tabs = const [
-    _BottomTab(icon: Icons.view_kanban_outlined, labelVi: 'Nhóm', labelEn: 'Team'),
-    _BottomTab(icon: Icons.check_box_outlined, labelVi: 'Việc của tôi', labelEn: 'My Tasks'),
-    _BottomTab(icon: Icons.search, labelVi: 'Tìm kiếm', labelEn: 'Search'),
+    _BottomTab(icon: Icons.view_kanban_outlined, labelVi: 'Nhom', labelEn: 'Team'),
+    _BottomTab(icon: Icons.check_box_outlined, labelVi: 'Viec cua toi', labelEn: 'My Tasks'),
+    _BottomTab(icon: Icons.forum_outlined, labelVi: 'Forum', labelEn: 'Forum'),
     _BottomTab(icon: Icons.chat_bubble_outline_rounded, labelVi: 'WorkChat', labelEn: 'WorkChat'),
   ];
 
@@ -145,6 +148,19 @@ class _GroupPageState extends State<GroupPage> {
   String _translate(String vi, String en) =>
       _language == AppLanguage.vi ? vi : en;
 
+  String _getTabTitle() {
+    switch (_selectedIndex) {
+      case 1:
+        return _translate('Công việc', 'My Tasks');
+      case 2:
+        return _translate('Forum', 'Forum');
+      case 3:
+        return _translate('WorkChat', 'WorkChat');
+      default:
+        return _translate('Nhóm', 'Group');
+    }
+  }
+
   Widget _buildTabBody() {
     switch (_selectedIndex) {
       case 3:
@@ -153,72 +169,12 @@ class _GroupPageState extends State<GroupPage> {
           language: _language,
         );
       case 1:
-        return _buildPlaceholder(
-          icon: Icons.check_box_outlined,
-          title: _translate('Công việc', 'My Tasks'),
-          description: _translate(
-            'Tính năng đang được xây dựng.',
-            'This area is coming soon.',
-          ),
-        );
+        return TasksPage(language: _language);
       case 2:
-        return _buildPlaceholder(
-          icon: Icons.search,
-          title: _translate('Tìm kiếm', 'Search'),
-          description: _translate(
-            'Chúng tôi sẽ sớm bổ sung khu vực này.',
-            'We are working on this section.',
-          ),
-        );
+        return ForumPage(language: _language);
       default:
-        return _buildPlaceholder(
-          icon: Icons.view_kanban_outlined,
-          title: _translate('Nhóm', 'Group space'),
-          description: _translate(
-            'Bảng tổng quan nhóm sẽ sớm xuất hiện.',
-            'Group overview will be available soon.',
-          ),
-        );
+        return GroupPage(language: _language);
     }
-  }
-
-  Widget _buildPlaceholder({
-    required IconData icon,
-    required String title,
-    required String description,
-  }) {
-    return Container(
-      width: double.infinity,
-      color: const Color(0xFFF7F7F7),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 48, color: const Color(0xFFCBD5F0)),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1F2A37),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: 260,
-              child: Text(
-                description,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFF6B7280),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   @override
@@ -242,11 +198,11 @@ class _GroupPageState extends State<GroupPage> {
           body: Column(
             children: [
               if (_selectedIndex != 3) ...[
-                _GroupAppBar(
+                _AppBar(
                   profile: _profile,
                   isLoading: _profileLoading,
                   onAvatarTap: _openUserSheet,
-                  title: _translate('Nhóm', 'Group'),
+                  title: _getTabTitle(),
                 ),
                 if (_profileFailed)
                   Padding(
@@ -304,18 +260,19 @@ class _GroupPageState extends State<GroupPage> {
   }
 }
 
-class _GroupAppBar extends StatelessWidget {
-  const _GroupAppBar({
+class _AppBar extends StatelessWidget {
+  const _AppBar({
     required this.profile,
     required this.isLoading,
     required this.onAvatarTap,
-     required this.title,   
+    required this.title,
   });
 
   final UserProfile? profile;
   final bool isLoading;
   final VoidCallback onAvatarTap;
-  final String title; 
+  final String title;
+
   @override
   Widget build(BuildContext context) {
     final initials =
@@ -352,9 +309,9 @@ class _GroupAppBar extends StatelessWidget {
                     : null,
               ),
             ),
-             Text(
-                title,
-              style: TextStyle(
+            Text(
+              title,
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
                 color: Color(0xFF1B2B57),
@@ -570,7 +527,7 @@ class _UserSheetState extends State<_UserSheet> {
                         color: Color(0xFF4B5675),
                       ),
                       title: Text(
-                        _translate('Đăng xuất', 'Logout'),
+                        _translate('Dang xuat', 'Logout'),
                         style: const TextStyle(
                           fontSize: 16,
                           color: Color(0xFF1D2A4A),
@@ -618,7 +575,7 @@ class _UserSheetState extends State<_UserSheet> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  _translate('Đăng xuất', 'Logout'),
+                  _translate('Dang xuat', 'Logout'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 18,
@@ -628,7 +585,7 @@ class _UserSheetState extends State<_UserSheet> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  _translate('Bạn có chắc chắn muốn đăng xuất?', 'Are you sure you want to logout?'),
+                  _translate('Ban co chac chan muon dang xuat?', 'Are you sure you want to logout?'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 15,
@@ -651,7 +608,7 @@ class _UserSheetState extends State<_UserSheet> {
                         ),
                         onPressed: () => Navigator.of(context).pop(true),
                         child: Text(
-                          _translate('Có', 'Yes'),
+                          _translate('Co', 'Yes'),
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -669,7 +626,7 @@ class _UserSheetState extends State<_UserSheet> {
                         ),
                         onPressed: () => Navigator.of(context).pop(false),
                         child: Text(
-                          _translate('Không', 'No'),
+                          _translate('Khong', 'No'),
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF1C293F),
@@ -716,5 +673,3 @@ class _BottomTab {
   final String labelVi;
   final String labelEn;
 }
-
-

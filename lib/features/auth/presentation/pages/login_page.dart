@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../timeline/presentation/pages/group_page.dart';
+import '../../../timeline/presentation/pages/main_page.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/localization/app_language.dart';
 import '../../data/datasources/auth_remote_data_source.dart';
@@ -57,7 +57,7 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => GroupPage(
+          builder: (_) => MainPage(
             session: session,
             initialLanguage: _language,
           ),
@@ -81,9 +81,6 @@ class _LoginPageState extends State<LoginPage> {
       }
     }
   }
-
-  String _translate(String vi, String en) =>
-      _language == AppLanguage.vi ? vi : en;
 
   @override
   Widget build(BuildContext context) {
