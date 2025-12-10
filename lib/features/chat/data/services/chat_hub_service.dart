@@ -81,6 +81,7 @@ class ChatHubService {
       if (groupId != null) {
         connection.invoke('JoinGroup', args: <Object>[groupId]).catchError((e) {});
       }
+      
     });
 
     int retries = 0;
