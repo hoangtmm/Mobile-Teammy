@@ -202,4 +202,123 @@ class GroupRemoteDataSource {
       }
     }
   }
+
+  /// Lấy danh sách thành viên của nhóm
+  Future<List<Map<String, dynamic>>> fetchGroupMembers(
+    String accessToken,
+    String groupId,
+  ) async {
+    final uri = Uri.parse('$baseUrl${ApiPath.groupMembers(groupId)}');
+
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch group members');
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    return decoded.whereType<Map<String, dynamic>>().toList();
+  }
+
+  /// Tìm kiếm user theo email
+  Future<List<Map<String, dynamic>>> searchUsers(
+    String accessToken,
+    String email,
+  ) async {
+    final uri = Uri.parse('$baseUrl${ApiPath.usersList}').replace(
+      queryParameters: {'email': email},
+    );
+
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to search users');
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    return decoded.whereType<Map<String, dynamic>>().toList();
+  }
+
+  /// Mời người dùng vào nhóm
+  Future<Map<String, dynamic>> inviteUserToGroup(
+    String accessToken,
+    String groupId,
+    String userId,
+  ) async {
+    final uri = Uri.parse('$baseUrl${ApiPath.groupInvite(groupId)}');
+
+    final response = await _httpClient.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+        'accept': 'application/json',
+      },
+      body: jsonEncode({'userId': userId}),
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      try {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        final message = decoded['message'] as String? ?? decoded['error'] as String?;
+        throw Exception(message ?? 'Failed to invite user');
+      } catch (e) {
+        if (e is Exception && e.toString().contains('message')) {
+          rethrow;
+        }
+        throw Exception('Failed to invite user (Status: ${response.statusCode})');
+      }
+    }
+
+    return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  /// Cập nhật thông tin nhóm
+  Future<GroupModel> updateGroup(
+    String accessToken,
+    String groupId,
+    Map<String, dynamic> updateData,
+  ) async {
+    final uri = Uri.parse('$baseUrl${ApiPath.groupUpdate(groupId)}');
+
+    final response = await _httpClient.put(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+        'accept': 'application/json',
+      },
+      body: jsonEncode(updateData),
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      try {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        final message = decoded['message'] as String? ?? decoded['error'] as String?;
+        throw Exception(message ?? 'Failed to update group');
+      } catch (e) {
+        if (e is Exception && e.toString().contains('message')) {
+          rethrow;
+        }
+        throw Exception('Failed to update group (Status: ${response.statusCode})');
+      }
+    }
+
+    return GroupModel.fromJson(
+      jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
+    );
+  }
 }
+

@@ -2,6 +2,32 @@ import 'group_member.dart';
 import 'major.dart';
 import 'semester.dart';
 
+class Topic {
+  final String topicId;
+  final String topicName;
+  final String description;
+
+  const Topic({
+    required this.topicId,
+    required this.topicName,
+    required this.description,
+  });
+}
+
+class Mentor {
+  final String userId;
+  final String displayName;
+  final String email;
+  final String? avatarUrl;
+
+  const Mentor({
+    required this.userId,
+    required this.displayName,
+    required this.email,
+    this.avatarUrl,
+  });
+}
+
 class Group {
   final String id;
   final String name;
@@ -13,8 +39,8 @@ class Group {
   final List<String> skills;
   final Semester semester;
   final Major major;
-  final String? topic;
-  final String? mentor;
+  final Topic? topic;
+  final Mentor? mentor;
   final GroupMember? leader;
   final List<GroupMember> members;
 
