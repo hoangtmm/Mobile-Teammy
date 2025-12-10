@@ -74,6 +74,7 @@ class ChatHubService {
     _joinedGroupId = groupId;
     await _ensureConnection();
     await _connection?.invoke('JoinGroup', args: [groupId]);
+    
   }
 
   Future<void> leaveGroup(String groupId) async {
