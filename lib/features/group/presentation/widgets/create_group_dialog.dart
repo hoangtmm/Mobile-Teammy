@@ -93,7 +93,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
       await _repository.createGroup(
         widget.accessToken,
         name: _nameCtrl.text.trim(),
-        description: _descCtrl.text.trim(),
+        description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
         maxMembers: int.tryParse(_maxMembersCtrl.text) ?? 5,
         skills: _selectedSkillIds.toList(),
       );
@@ -103,10 +103,35 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
       widget.onGroupCreated?.call();
     } catch (e) {
       if (!mounted) return;
+      
+      // Extract error message from exception
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      
+      // Translate error message
+      errorMessage = _translateErrorMessage(errorMessage);
+      
       setState(() {
-        _error = e.toString();
+        _error = errorMessage;
         _submitting = false;
       });
+      
+      // Show error dialog to user
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text(_t('Lỗi', 'Error')),
+          content: Text(errorMessage),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(_t('Đóng', 'Close')),
+            ),
+          ],
+        ),
+      );
     }
   }
 
@@ -160,6 +185,27 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
       ),
     );
   }
+
+  String _translateErrorMessage(String errorMessage) {
+    // Map common server error messages to translations
+    const errorMap = {
+      "Members must be between 4 and 6 in this semester": "Số thành viên phải từ 4 đến 6 trong kỳ học này",
+      "Group name already exists": "Tên nhóm đã tồn tại",
+      "Invalid skills": "Kỹ năng không hợp lệ",
+      "Unauthorized": "Không có quyền truy cập",
+    };
+
+    // Check if error message matches any known errors
+    for (final entry in errorMap.entries) {
+      if (errorMessage.contains(entry.key)) {
+        return widget.language == AppLanguage.vi ? entry.value : errorMessage;
+      }
+    }
+
+    // Return original message if no match found
+    return errorMessage;
+  }
+
     @override
   void dispose() {
     _nameCtrl.dispose();
@@ -173,9 +219,15 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
     if (_loading) {
       return Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: const Padding(
-          padding: EdgeInsets.all(24),
-          child: CircularProgressIndicator(),
+        child: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: SizedBox(
+              height: 50,
+              width: 50,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
         ),
       );
     }
@@ -194,7 +246,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    _t('Tao Nhom Moi', 'Create New Group'),
+                    _t('Tạo Nhóm Mới', 'Create New Group'),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -213,7 +265,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
               TextField(
                 controller: _nameCtrl,
                 decoration: InputDecoration(
-                  labelText: _t('Ten Nhom *', 'Group Name *'),
+                  labelText: _t('Tên Nhóm *', 'Group Name *'),
                   hintText: _t('VD: AI Capstone', 'E.g., AI Capstone'),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -231,8 +283,8 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                 controller: _descCtrl,
                 maxLines: 3,
                 decoration: InputDecoration(
-                  labelText: _t('Mo Ta', 'Description'),
-                  hintText: _t('Muc tieu, cong nghe su dung...', 'Goals, tech stack...'),
+                  labelText: _t('Mô Tả', 'Description'),
+                  hintText: _t('Mục tiêu, công nghệ sử dụng...', 'Goals, tech stack...'),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -249,7 +301,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                 controller: _maxMembersCtrl,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  labelText: _t('So Thanh Vien Toi Da *', 'Max Members *'),
+                  labelText: _t('Số Thành Viên Tối Đa *', 'Max Members *'),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -263,7 +315,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
 
               // Skills
               Text(
-                _t('Ky Nang *', 'Skills *'),
+                _t('Kỹ Năng *', 'Skills *'),
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -284,7 +336,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _t('Da chon Ky Nang (0)', 'Selected Skills (${_selectedSkillIds.length})'),
+                      _t('Đã chọn Kỹ Năng (0)', 'Selected Skills (${_selectedSkillIds.length})'),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -294,7 +346,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                     const SizedBox(height: 8),
                     if (_selectedSkillIds.isEmpty)
                       Text(
-                        _t('Nhan vao cac ky nang duoi de them vao', 'Click skills below to add them'),
+                        _t('Nhấn vào các kỹ năng dưới để thêm vào', 'Click skills below to add them'),
                         style: const TextStyle(
                           fontSize: 12,
                           color: Color(0xFF9CA3AF),
@@ -359,7 +411,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _t('Ky Nang Khong Dung (Nhan de them)', 'Available Skills (Click to add)'),
+                        _t('Kỹ Năng Không Dùng (Nhấn để thêm)', 'Available Skills (Click to add)'),
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -454,7 +506,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                           ? null
                           : () => Navigator.of(context).pop(),
                       child: Text(
-                        _t('Huy', 'Cancel'),
+                        _t('Hủy', 'Cancel'),
                         style: const TextStyle(
                           color: Color(0xFF6B7280),
                           fontWeight: FontWeight.w600,
@@ -486,7 +538,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                               ),
                             )
                           : Text(
-                              _t('Tao Nhom', 'Create Group'),
+                              _t('Tạo Nhóm', 'Create Group'),
                               style: const TextStyle(fontWeight: FontWeight.w600),
                             ),
                     ),

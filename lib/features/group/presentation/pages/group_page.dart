@@ -88,6 +88,23 @@ class _GroupPageState extends State<GroupPage> {
       widget.language == AppLanguage.vi ? vi : en;
 
   void _showCreateGroupDialog() {
+    // Check if user already has a group
+    if (_groups.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _translate(
+              'Bạn chỉ có thể tạo 1 nhóm. Vui lòng rời khỏi nhóm hiện tại trước khi tạo nhóm mới.',
+              'You can only create 1 group. Please leave your current group before creating a new one.',
+            ),
+          ),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (_) => CreateGroupDialog(
@@ -99,10 +116,99 @@ class _GroupPageState extends State<GroupPage> {
     );
   }
 
+  Future<void> _handleLeaveGroup(String groupId, String groupName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(_translate('Rời khỏi nhóm', 'Leave Group')),
+        content: Text(
+          _translate(
+            'Bạn có chắc chắn muốn rời khỏi nhóm "$groupName" không?',
+            'Are you sure you want to leave the group "$groupName"?',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(_translate('Hủy', 'Cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              _translate('Rời khỏi', 'Leave'),
+              style: const TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // Show loading indicator
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      await _repository.leaveGroup(widget.session.accessToken, groupId);
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _translate(
+              'Bạn đã rời khỏi nhóm thành công',
+              'You have successfully left the group',
+            ),
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      await _loadGroups();
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+      
+      // Extract error message
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _translate(
+              'Lỗi: $errorMessage',
+              'Error: $errorMessage',
+            ),
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: SizedBox(
+          height: 50,
+          width: 50,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
     }
 
     if (_error != null) {
@@ -378,7 +484,7 @@ class _GroupPageState extends State<GroupPage> {
                             // TODO: Navigate to group detail
                           },
                           onLeaveGroupTap: () {
-                            // TODO: Leave group
+                            _handleLeaveGroup(group.id, group.name);
                           },
                         ),
                       );
@@ -474,11 +580,11 @@ class _GroupCard extends StatelessWidget {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      if (group.description.isNotEmpty)
+                      if (group.description != null && group.description!.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
-                            group.description,
+                            group.description!,
                             style: const TextStyle(
                               fontSize: 12,
                               color: Color(0xFF8B909F),

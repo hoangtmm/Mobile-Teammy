@@ -23,16 +23,27 @@ class GroupModel extends Group {
 
   factory GroupModel.fromJson(Map<String, dynamic> json) {
     return GroupModel(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String,
-      status: json['status'] as String,
-      maxMembers: json['maxMembers'] as int,
-      currentMembers: json['currentMembers'] as int,
-      role: json['role'] as String,
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String?,
+      status: json['status'] as String? ?? '',
+      maxMembers: (json['maxMembers'] as num?)?.toInt() ?? 0,
+      currentMembers: (json['currentMembers'] as num?)?.toInt() ?? 0,
+      role: json['role'] as String? ?? '',
       skills: List<String>.from(json['skills'] as List<dynamic>? ?? []),
-      semester: SemesterModel.fromJson(json['semester'] as Map<String, dynamic>),
-      major: MajorModel.fromJson(json['major'] as Map<String, dynamic>),
+      semester: (json['semester'] as Map<String, dynamic>?) != null
+          ? SemesterModel.fromJson(json['semester'] as Map<String, dynamic>)
+          : SemesterModel(
+              semesterId: '',
+              season: '',
+              year: 0,
+              startDate: DateTime.now(),
+              endDate: DateTime.now(),
+              isActive: false,
+            ),
+      major: (json['major'] as Map<String, dynamic>?) != null
+          ? MajorModel.fromJson(json['major'] as Map<String, dynamic>)
+          : MajorModel(majorId: '', majorName: ''),
       topic: json['topic'] as String?,
       mentor: json['mentor'] as String?,
       leader: json['leader'] != null

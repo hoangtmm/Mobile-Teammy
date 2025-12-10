@@ -32,6 +32,8 @@ class ApiPath {
   static String groupTracking(String groupId) =>
       '/api/groups/$groupId/tracking/reports/project';
   static const groupsCreate = '/api/groups';
+  static String groupLeaveMember(String groupId) =>
+      '/api/groups/$groupId/members/me';
 
   /// Major endpoints.
   static const majors = '/api/majors';

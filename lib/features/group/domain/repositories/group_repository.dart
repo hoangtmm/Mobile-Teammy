@@ -25,8 +25,11 @@ abstract class GroupRepository {
   Future<Group> createGroup(
     String accessToken, {
     required String name,
-    required String description,
+    String? description,
     required int maxMembers,
     required List<String> skills,
   });
+
+  /// Rời khỏi nhóm
+  Future<void> leaveGroup(String accessToken, String groupId);
 }

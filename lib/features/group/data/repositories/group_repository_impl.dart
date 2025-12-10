@@ -39,7 +39,7 @@ class GroupRepositoryImpl implements GroupRepository {
   Future<Group> createGroup(
     String accessToken, {
     required String name,
-    required String description,
+    String? description,
     required int maxMembers,
     required List<String> skills,
   }) async {
@@ -50,5 +50,10 @@ class GroupRepositoryImpl implements GroupRepository {
       maxMembers: maxMembers,
       skills: skills,
     );
+  }
+
+  @override
+  Future<void> leaveGroup(String accessToken, String groupId) async {
+    return await remoteDataSource.leaveGroup(accessToken, groupId);
   }
 }

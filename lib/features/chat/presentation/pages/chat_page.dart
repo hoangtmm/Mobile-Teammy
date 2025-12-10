@@ -247,9 +247,13 @@ class _ChatPageState extends State<ChatPage> {
         children: [
           const SizedBox(height: 160),
           Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(
-                const Color(0xFF4CB065),
+            child: SizedBox(
+              height: 50,
+              width: 50,
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  const Color(0xFF4CB065),
+                ),
               ),
             ),
           ),
