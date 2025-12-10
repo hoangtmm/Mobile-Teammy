@@ -5,7 +5,7 @@ import 'semester.dart';
 class Group {
   final String id;
   final String name;
-  final String description;
+  final String? description;
   final String status;
   final int maxMembers;
   final int currentMembers;

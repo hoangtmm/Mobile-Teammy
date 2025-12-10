@@ -245,7 +245,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
             const SizedBox(height: 8),
             Expanded(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(
+                      child: SizedBox(
+                        height: 50,
+                        width: 50,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
                   : RefreshIndicator(
                       onRefresh: () => _loadHistory(),
                       child: _MessageList(
