@@ -21,15 +21,29 @@ class ChatMessageModel extends ChatMessage {
     final createdAtRaw = json['createdAt'];
     DateTime createdAt = DateTime.now();
     if (createdAtRaw is String) {
-      createdAt = DateTime.tryParse(createdAtRaw) ?? createdAt;
+      final parsed = DateTime.tryParse(createdAtRaw);
+      if (parsed != null) {
+        createdAt = parsed.isUtc ? parsed.toLocal() : parsed;
+      }
     }
-
-    final senderId = json['senderId']?.toString() ?? '';
-    final senderName =
-        json['senderName'] as String? ??
-        json['senderDisplayName'] as String? ??
-        json['displayName'] as String? ??
-        '';
+    String senderId = '';
+    String senderName = '';
+    String? senderAvatarUrl;
+    final senderObj = json['sender'];
+    if (senderObj is Map) {
+      final senderMap = Map<String, dynamic>.from(senderObj);
+      senderId = senderMap['userId']?.toString() ?? '';
+      senderName = senderMap['displayName'] as String? ?? '';
+      senderAvatarUrl = senderMap['avatarUrl'] as String?;
+    } else {
+      senderId = json['senderId']?.toString() ?? '';
+      senderName =
+          json['senderName'] as String? ??
+          json['senderDisplayName'] as String? ??
+          json['displayName'] as String? ??
+          '';
+      senderAvatarUrl = json['senderAvatarUrl'] as String? ?? json['avatarUrl'] as String?;
+    }
 
     return ChatMessageModel(
       messageId:
@@ -43,8 +57,7 @@ class ChatMessageModel extends ChatMessage {
           '',
       senderId: senderId,
       senderName: senderName,
-      senderAvatarUrl:
-          json['senderAvatarUrl'] as String? ?? json['avatarUrl'] as String?,
+      senderAvatarUrl: senderAvatarUrl,
       content: json['content'] as String? ?? '',
       createdAt: createdAt,
       type: json['type'] as String?,

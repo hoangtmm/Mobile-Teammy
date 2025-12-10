@@ -20,13 +20,14 @@ class AuthRepository {
   Future<AuthSession> signInWithGoogle() async {
     final idToken = await _acquireFirebaseIdToken();
     final response = await remoteDataSource.exchangeIdToken(idToken);
-    return AuthSession(
+    final session = AuthSession(
       accessToken: response.accessToken,
       userId: response.userId,
       email: response.email,
       displayName: response.displayName,
       role: response.role,
     );
+    return session;
   }
 
   Future<String> _acquireFirebaseIdToken() async {

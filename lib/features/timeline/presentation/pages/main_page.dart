@@ -530,7 +530,7 @@ class _UserSheetState extends State<_UserSheet> {
                         color: Color(0xFF4B5675),
                       ),
                       title: Text(
-                        _translate('Dang xuat', 'Logout'),
+                        _translate('Đăng xuất', 'Logout'),
                         style: const TextStyle(
                           fontSize: 16,
                           color: Color(0xFF1D2A4A),
@@ -578,7 +578,7 @@ class _UserSheetState extends State<_UserSheet> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  _translate('Dang xuat', 'Logout'),
+                  _translate('Đăng xuất', 'Logout'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 18,
@@ -588,7 +588,7 @@ class _UserSheetState extends State<_UserSheet> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  _translate('Ban co chac chan muon dang xuat?', 'Are you sure you want to logout?'),
+                  _translate('Bạn có chắc chắn muốn đăng xuất?', 'Are you sure you want to logout?'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 15,
