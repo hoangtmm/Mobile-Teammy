@@ -39,6 +39,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   bool _loading = true;
   bool _submitting = false;
   String? _error;
+  String? _validationError;
 
   @override
   void initState() {
@@ -74,20 +75,23 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
 
   Future<void> _handleCreateGroup() async {
     if (_nameCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_t('Vui lòng nhập tên nhóm', 'Please enter group name'))),
-      );
+      setState(() {
+        _validationError = _t('Vui lòng nhập tên nhóm', 'Please enter group name');
+      });
       return;
     }
 
     if (_selectedSkillIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_t('Vui lòng chọn ít nhất 1 kỹ năng', 'Please select at least 1 skill'))),
-      );
+      setState(() {
+        _validationError = _t('Vui lòng chọn ít nhất 1 kỹ năng', 'Please select at least 1 skill');
+      });
       return;
     }
 
-    setState(() => _submitting = true);
+    setState(() {
+      _submitting = true;
+      _validationError = null;
+    });
 
     try {
       await _repository.createGroup(
@@ -260,6 +264,42 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
                 ],
               ),
               const SizedBox(height: 20),
+              
+              // Validation error message
+              if (_validationError != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFFEF4444).withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          FeatherIcons.alertCircle,
+                          color: Color(0xFFEF4444),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _validationError!,
+                            style: const TextStyle(
+                              color: Color(0xFFEF4444),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               
               // Tên nhóm
               TextField(

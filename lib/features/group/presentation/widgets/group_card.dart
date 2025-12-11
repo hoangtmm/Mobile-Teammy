@@ -28,11 +28,12 @@ class GroupCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFFFFFFF),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E4E9)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -41,7 +42,7 @@ class GroupCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with role badge
+          // Header with title and role badge
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -54,81 +55,63 @@ class GroupCard extends StatelessWidget {
                       Text(
                         group.name,
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF1C293F),
+                          color: Color(0xFF212631),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Text(
                         group.major.majorName,
                         style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF6B7280),
+                          fontSize: 12,
+                          color: Color(0xFF747A8A),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      if (group.description != null &&
-                          group.description!.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(
-                            group.description!,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF8B909F),
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                    ],
+                  ),
+                ),
+                if (group.role == 'leader')
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3B5FE5).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(0xFF3B5FE5).withOpacity(0.2),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.star_rounded,
+                          size: 12,
+                          color: Color(0xFF3B5FE5),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _translate('Trưởng nhóm', 'Team Lead'),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF3B5FE5),
                           ),
                         ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF3A6FD8).withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: const Color(0xFF3A6FD8).withOpacity(0.3),
+                      ],
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _getRoleIcon(group.role),
-                        size: 12,
-                        color: const Color(0xFF3A6FD8),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _formatRole(group.role),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF3A6FD8),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
-          // Divider
-          Container(
-            height: 1,
-            color: const Color(0xFFE5E7EB),
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-          ),
-          // Status and semester row
+
+          // Info Grid: Semester | Status
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
                 Expanded(
@@ -138,8 +121,8 @@ class GroupCard extends StatelessWidget {
                       Text(
                         _translate('Kỳ học', 'Semester'),
                         style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFFA0AEC0),
+                          fontSize: 10,
+                          color: Color(0xFF747A8A),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -149,7 +132,7 @@ class GroupCard extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF1F2A37),
+                          color: Color(0xFF212631),
                         ),
                       ),
                     ],
@@ -162,8 +145,8 @@ class GroupCard extends StatelessWidget {
                       Text(
                         _translate('Trạng thái', 'Status'),
                         style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFFA0AEC0),
+                          fontSize: 10,
+                          color: Color(0xFF747A8A),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -171,12 +154,12 @@ class GroupCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
-                          vertical: 3,
+                          vertical: 4,
                         ),
                         decoration: BoxDecoration(
                           color: _getStatusColor(group.status)
                               .withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           _formatStatus(group.status),
@@ -193,7 +176,10 @@ class GroupCard extends StatelessWidget {
               ],
             ),
           ),
-          // Progress section
+
+          const SizedBox(height: 12),
+
+          // Progress Bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
@@ -206,7 +192,7 @@ class GroupCard extends StatelessWidget {
                       _translate('Tiến độ', 'Progress'),
                       style: const TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF6B7280),
+                        color: Color(0xFF747A8A),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -215,7 +201,7 @@ class GroupCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF3A6FD8),
+                        color: Color(0xFF3B5FE5),
                       ),
                     ),
                   ],
@@ -226,7 +212,7 @@ class GroupCard extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: progress / 100,
                     minHeight: 6,
-                    backgroundColor: const Color(0xFFE5E7EB),
+                    backgroundColor: const Color(0xFFE2E4E9),
                     valueColor: AlwaysStoppedAnimation<Color>(
                       _getProgressColor(progress),
                     ),
@@ -235,67 +221,86 @@ class GroupCard extends StatelessWidget {
               ],
             ),
           ),
+
           const SizedBox(height: 12),
-          // Members section
+
+          // Members and Skills
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  FeatherIcons.users,
-                  size: 16,
-                  color: Color(0xFF6B7280),
+                Row(
+                  children: [
+                    const Icon(
+                      FeatherIcons.users,
+                      size: 14,
+                      color: Color(0xFF747A8A),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      group.currentMembers == 0
+                          ? _translate('Chưa có thành viên', 'No members')
+                          : _translate(
+                              '${group.currentMembers}/${group.maxMembers} thành viên',
+                              '${group.currentMembers}/${group.maxMembers} members',
+                            ),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF747A8A),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  group.currentMembers == 0
-                      ? _translate('Chưa có thành viên', 'No members yet')
-                      : _translate(
-                          '${group.currentMembers}/${group.maxMembers} thành viên',
-                          '${group.currentMembers}/${group.maxMembers} members',
-                        ),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF6B7280),
+                if (group.skills.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: group.skills.take(3).map((skill) {
+                      return SkillTag(skill: skill);
+                    }).toList(),
                   ),
-                ),
+                  if (group.skills.length > 3)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        '+${group.skills.length - 3} ${_translate('khác', 'more')}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF747A8A),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                ],
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          // Skills
-          if (group.skills.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: group.skills
-                    .map((skill) => SkillTag(skill: skill))
-                    .toList(),
-              ),
-            ),
+
           const SizedBox(height: 16),
-          // Divider before footer
+
+          // Divider
           Container(
             height: 1,
-            color: const Color(0xFFE5E7EB),
+            color: const Color(0xFFE2E4E9),
           ),
-          // Footer with action buttons
+
+          // Action Buttons
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 Expanded(
                   child: ElevatedButton(
                     onPressed: onViewTap,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3A6FD8),
+                      backgroundColor: const Color(0xFF3B5FE5),
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                     child: Text(
@@ -307,28 +312,23 @@ class GroupCard extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
-          // Leave group button
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Row(
-              children: [
+                const SizedBox(width: 12),
                 Expanded(
-                  child: ElevatedButton(
+                  child: OutlinedButton(
                     onPressed: onLeaveGroupTap,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFEF4444),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFEF4444),
+                      side: const BorderSide(
+                        color: Color(0xFFEF4444),
+                        width: 1.5,
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                     child: Text(
-                      _translate('Rời khỏi nhóm', 'Leave Group'),
+                      _translate('Rời khỏi', 'Leave'),
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -344,20 +344,6 @@ class GroupCard extends StatelessWidget {
     );
   }
 
-  String _formatRole(String role) {
-    if (role == 'leader') return _translate('Trưởng nhóm', 'Team Leader');
-    if (role == 'member') return _translate('Thành viên', 'Member');
-    if (role == 'mentor') return _translate('Cố vấn', 'Mentor');
-    return role;
-  }
-
-  IconData _getRoleIcon(String role) {
-    if (role == 'leader') return FeatherIcons.award;
-    if (role == 'member') return FeatherIcons.user;
-    if (role == 'mentor') return FeatherIcons.star;
-    return FeatherIcons.user;
-  }
-
   String _formatStatus(String status) {
     if (status == 'recruiting') return _translate('Tuyển dụng', 'Recruiting');
     if (status == 'active') return _translate('Hoạt động', 'Active');
@@ -367,14 +353,14 @@ class GroupCard extends StatelessWidget {
 
   Color _getProgressColor(int percent) {
     if (percent < 33) return const Color(0xFF9CA3AF);
-    if (percent < 66) return const Color(0xFFF97316);
-    return const Color(0xFF16A34A);
+    if (percent < 66) return const Color(0xFFF57C1F);
+    return const Color(0xFF10B981);
   }
 
   Color _getStatusColor(String status) {
-    if (status == 'recruiting') return const Color(0xFF3B82F6);
+    if (status == 'recruiting') return const Color(0xFF3B5FE5);
     if (status == 'active') return const Color(0xFF10B981);
     if (status == 'completed') return const Color(0xFF8B5CF6);
-    return const Color(0xFF6B7280);
+    return const Color(0xFF747A8A);
   }
 }

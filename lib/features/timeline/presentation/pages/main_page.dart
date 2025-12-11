@@ -41,10 +41,26 @@ class _MainPageState extends State<MainPage> {
   bool _isUserSheetOpen = false;
 
   final _tabs = const [
-    _BottomTab(icon: Icons.view_kanban_outlined, labelVi: 'Nhom', labelEn: 'Team'),
-    _BottomTab(icon: Icons.check_box_outlined, labelVi: 'Viec cua toi', labelEn: 'My Tasks'),
-    _BottomTab(icon: Icons.forum_outlined, labelVi: 'Forum', labelEn: 'Forum'),
-    _BottomTab(icon: Icons.chat_bubble_outline_rounded, labelVi: 'WorkChat', labelEn: 'WorkChat'),
+    _BottomTab(
+      icon: Icons.view_kanban_outlined,
+      labelVi: 'Nhóm',
+      labelEn: 'Team',
+    ),
+    _BottomTab(
+      icon: Icons.check_box_outlined,
+      labelVi: 'Bảng Kanban',
+      labelEn: 'Kanban Board',
+    ),
+    _BottomTab(
+      icon: Icons.forum_outlined,
+      labelVi: 'Diễn đàn',
+      labelEn: 'Forum',
+    ),
+    _BottomTab(
+      icon: Icons.chat_bubble_outline_rounded,
+      labelVi: 'WorkChat',
+      labelEn: 'WorkChat',
+    ),
   ];
 
   late final List<_SheetItemData> _sheetItems;
@@ -72,7 +88,9 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _loadProfile() async {
     try {
-      final profile = await _userRepository.fetchProfile(widget.session.accessToken);
+      final profile = await _userRepository.fetchProfile(
+        widget.session.accessToken,
+      );
       if (!mounted) return;
       setState(() {
         _profile = profile;
@@ -113,8 +131,10 @@ class _MainPageState extends State<MainPage> {
         );
       },
       transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final animationTween = Tween(begin: const Offset(-1, 0), end: Offset.zero)
-            .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+        final animationTween =
+            Tween(begin: const Offset(-1, 0), end: Offset.zero).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+            );
         return SlideTransition(position: animationTween, child: child);
       },
     ).whenComplete(() => _isUserSheetOpen = false);
@@ -151,7 +171,7 @@ class _MainPageState extends State<MainPage> {
   String _getTabTitle() {
     switch (_selectedIndex) {
       case 1:
-        return _translate('Công việc', 'My Tasks');
+        return _translate('Bảng Kanban', 'Kanban Board');
       case 2:
         return _translate('Forum', 'Forum');
       case 3:
@@ -170,14 +190,11 @@ class _MainPageState extends State<MainPage> {
           onClose: () => setState(() => _selectedIndex = 0),
         );
       case 1:
-        return TasksPage(language: _language);
+        return TasksPage(language: _language, session: widget.session);
       case 2:
-        return ForumPage(language: _language);
+        return ForumPage(session: widget.session, language: _language);
       default:
-        return GroupPage(
-          session: widget.session,
-          language: _language,
-        );
+        return GroupPage(session: widget.session, language: _language);
     }
   }
 
@@ -187,7 +204,8 @@ class _MainPageState extends State<MainPage> {
       onWillPop: () async => false,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onHorizontalDragStart: (details) => _dragStartX = details.globalPosition.dx,
+        onHorizontalDragStart: (details) =>
+            _dragStartX = details.globalPosition.dx,
         onHorizontalDragUpdate: (details) {
           if (_dragStartX != null &&
               _dragStartX! < 32 &&
@@ -212,7 +230,10 @@ class _MainPageState extends State<MainPage> {
                   Padding(
                     padding: const EdgeInsets.all(12),
                     child: Text(
-                      _translate('Không có thông tin người dùng', 'Unable to load profile'),
+                      _translate(
+                        'Không có thông tin người dùng',
+                        'Unable to load profile',
+                      ),
                       style: const TextStyle(color: Colors.redAccent),
                     ),
                   ),
@@ -235,8 +256,12 @@ class _MainPageState extends State<MainPage> {
                 children: List.generate(_tabs.length, (index) {
                   final tab = _tabs[index];
                   final isActive = index == _selectedIndex;
-                  final color = isActive ? const Color.fromARGB(255, 65, 157, 173) : const Color(0xFF9CA3AF);
-                  final label = _language == AppLanguage.vi ? tab.labelVi : tab.labelEn;
+                  final color = isActive
+                      ? const Color.fromARGB(255, 65, 157, 173)
+                      : const Color(0xFF9CA3AF);
+                  final label = _language == AppLanguage.vi
+                      ? tab.labelVi
+                      : tab.labelEn;
                   return GestureDetector(
                     onTap: () => setState(() => _selectedIndex = index),
                     behavior: HitTestBehavior.opaque,
@@ -249,7 +274,9 @@ class _MainPageState extends State<MainPage> {
                           label,
                           style: TextStyle(
                             fontSize: 12,
-                            fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                            fontWeight: isActive
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                             color: color,
                           ),
                         ),
@@ -281,10 +308,11 @@ class _AppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initials =
-        (profile?.displayName.isNotEmpty == true) ? profile!.displayName[0] : 'T';
+    final initials = (profile?.displayName.isNotEmpty == true)
+        ? profile!.displayName[0]
+        : 'T';
     return Container(
-      padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
+      padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 12),
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -375,8 +403,9 @@ class _UserSheetState extends State<_UserSheet> {
     final size = MediaQuery.of(context).size;
     final displayName = widget.profile?.displayName;
     final email = widget.profile?.email ?? '';
-    final initials =
-        (displayName?.isNotEmpty ?? false) ? displayName!.substring(0, 1).toUpperCase() : 'T';
+    final initials = (displayName?.isNotEmpty ?? false)
+        ? displayName!.substring(0, 1).toUpperCase()
+        : 'T';
 
     final sheetWidth = size.width >= 480 ? 360.0 : size.width * 0.85;
 
@@ -484,7 +513,9 @@ class _UserSheetState extends State<_UserSheet> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      displayName?.isNotEmpty == true ? displayName! : 'Teammy User',
+                      displayName?.isNotEmpty == true
+                          ? displayName!
+                          : 'Teammy User',
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -572,7 +603,9 @@ class _UserSheetState extends State<_UserSheet> {
       barrierDismissible: false,
       builder: (context) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           backgroundColor: const Color.fromARGB(255, 214, 231, 243),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
@@ -591,7 +624,10 @@ class _UserSheetState extends State<_UserSheet> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  _translate('Bạn có chắc chắn muốn đăng xuất?', 'Are you sure you want to logout?'),
+                  _translate(
+                    'Bạn có chắc chắn muốn đăng xuất?',
+                    'Are you sure you want to logout?',
+                  ),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 15,

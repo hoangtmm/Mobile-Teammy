@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/localization/app_language.dart';
 import '../../../auth/domain/entities/auth_session.dart';
+import '../../domain/entities/group_invitation.dart';
 import '../controllers/group_page_controller.dart';
 import '../widgets/create_group_dialog.dart';
 import '../widgets/group_card.dart';
@@ -24,6 +25,7 @@ class GroupPage extends StatefulWidget {
 
 class _GroupPageState extends State<GroupPage> {
   late final GroupPageController _controller;
+  int _invitationTabIndex = 0;
 
   @override
   void initState() {
@@ -215,135 +217,149 @@ class _GroupPageState extends State<GroupPage> {
 
   Widget _buildHeaderSliverAppBar() {
     return SliverAppBar(
-      floating: true,
+      floating: false,
       backgroundColor: Colors.white,
       elevation: 0,
       automaticallyImplyLeading: false,
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
           color: Colors.white,
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 _translate('Nhóm & Dự Án Của Tôi', 'My Groups & Projects'),
                 style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1C293F),
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF212631),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 _translate(
-                  'Quản lý dự án tập thể, theo dõi tiến độ, và cộng tác với các đồng đội. Tạo nhóm mới hoặc tham gia nhóm có sẵn để xây dựng những dự án tuyệt vời cùng nhau.',
-                  'Manage your capstone project teams, track progress, and collaborate with teammates. Create new groups or join existing ones to build amazing projects together.',
+                  'Quản lý dự án, theo dõi tiến độ và cộng tác với các đồng đội. Tạo nhóm mới hoặc tham gia nhóm có sẵn để xây dựng...',
+                  'Manage projects, track progress and collaborate with your team. Create new groups or join existing ones to build...',
                 ),
                 style: const TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF6B7280),
+                  fontSize: 14,
+                  color: Color(0xFF747A8A),
+                  height: 1.5,
                 ),
-                maxLines: 2,
+                maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               _buildHeaderActionButtons(),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               _buildHeaderStats(),
             ],
           ),
         ),
       ),
-      collapsedHeight: 180,
-      expandedHeight: 180,
+      collapsedHeight: 80,
+      expandedHeight: 290,
     );
   }
 
   Widget _buildHeaderActionButtons() {
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: _showCreateGroupDialog,
-            icon: const Icon(FeatherIcons.plus),
-            label: Text(
-              _translate('Tạo Nhóm Mới', 'Create New Group'),
-              style: const TextStyle(fontSize: 13),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF3A6FD8),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _showCreateGroupDialog,
+        icon: const Icon(FeatherIcons.plus, size: 18),
+        label: Text(
+          _translate('Tạo Nhóm Mới', 'Create New Group'),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    _translate(
-                      'Tham gia nhóm đang phát triển',
-                      'Join group feature coming soon',
-                    ),
-                  ),
-                ),
-              );
-            },
-            icon: const Icon(FeatherIcons.userPlus),
-            label: Text(
-              _translate('Tham Gia Nhóm', 'Join Group'),
-              style: const TextStyle(fontSize: 13),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF8C00),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF3B5FE5),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
+          elevation: 0,
         ),
-      ],
+      ),
     );
   }
 
   Widget _buildHeaderStats() {
+    final applicationCount = _controller.pendingInvitations
+        .where((inv) => inv.type == 'application')
+        .length;
+
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(
-          FeatherIcons.users,
-          size: 18,
-          color: const Color(0xFF6B7280),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          '${_controller.groups.length} ${_translate('nhóm đang hoạt động', 'active groups')}',
-          style: const TextStyle(
-            fontSize: 12,
-            color: Color(0xFF6B7280),
+        // Active Groups Stat
+        Expanded(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3B5FE5).withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  FeatherIcons.users,
+                  size: 18,
+                  color: Color(0xFF3B5FE5),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _translate(
+                    '${_controller.groups.length} nhóm đang hoạt động',
+                    '${_controller.groups.length} active group${_controller.groups.length != 1 ? 's' : ''}',
+                  ),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF212631),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 60),
-        Icon(
-          FeatherIcons.inbox,
-          size: 18,
-          color: const Color(0xFF6B7280),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          '0 ${_translate('đơn xin vào đang chờ', 'pending applications')}',
-          style: const TextStyle(
-            fontSize: 12,
-            color: Color(0xFF6B7280),
+        const SizedBox(width: 10),
+        // Pending Applications Stat
+        Expanded(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF57C1F).withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  FeatherIcons.mail,
+                  size: 18,
+                  color: Color(0xFFF57C1F),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _translate(
+                    '$applicationCount đơn xin vào đang chờ',
+                    '$applicationCount pending application${applicationCount != 1 ? 's' : ''}',
+                  ),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF212631),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -351,16 +367,20 @@ class _GroupPageState extends State<GroupPage> {
   }
 
   Widget _buildTabsSliverToBoxAdapter() {
+    final invitationCount = _controller.invitations.length + 
+        _controller.pendingInvitations.length;
+    
     return SliverToBoxAdapter(
       child: Container(
         color: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
         child: Row(
           children: [
             Expanded(
               child: _buildTabButton(
                 index: 0,
                 label: _translate('Nhóm', 'Groups'),
+                badge: null,
               ),
             ),
             const SizedBox(width: 16),
@@ -368,6 +388,7 @@ class _GroupPageState extends State<GroupPage> {
               child: _buildTabButton(
                 index: 1,
                 label: _translate('Lời Mời', 'Invitations'),
+                badge: invitationCount > 0 ? invitationCount : null,
               ),
             ),
           ],
@@ -376,32 +397,58 @@ class _GroupPageState extends State<GroupPage> {
     );
   }
 
-  Widget _buildTabButton({required int index, required String label}) {
+  Widget _buildTabButton({
+    required int index,
+    required String label,
+    int? badge,
+  }) {
     final isSelected = _controller.selectedTabIndex == index;
     return GestureDetector(
       onTap: () => _controller.setSelectedTabIndex(index),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
               color: isSelected
-                  ? const Color(0xFF3A6FD8)
+                  ? const Color(0xFF3B5FE5)
                   : Colors.transparent,
-              width: 2,
+              width: 3,
             ),
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: isSelected
-                ? const Color(0xFF3A6FD8)
-                : const Color(0xFF6B7280),
-          ),
-          textAlign: TextAlign.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isSelected
+                    ? const Color(0xFF212631)
+                    : const Color(0xFF747A8A),
+              ),
+            ),
+            if (badge != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$badge',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -459,15 +506,363 @@ class _GroupPageState extends State<GroupPage> {
   }
 
   Widget _buildInvitationsSliver() {
-    return SliverFillRemaining(
-      child: Center(
-        child: Text(
-          _translate('Chưa có lời mời nào', 'No invitations yet'),
-          style: const TextStyle(
-            fontSize: 16,
-            color: Colors.grey,
+    return SliverList(
+      delegate: SliverChildListDelegate([
+        // Sub-tabs for invitations
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F6F8),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE2E4E9), width: 1),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildInvitationTabButton(
+                    index: 0,
+                    label: _translate('Đơn xin vào', 'Applications'),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: _buildInvitationTabButton(
+                    index: 1,
+                    label: _translate('Đang chờ', 'Pending'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
+        // Content based on selected sub-tab
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: _invitationTabIndex == 0
+              ? _buildApplicationsList()
+              : _buildInvitationsList(),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildInvitationTabButton({required int index, required String label}) {
+    final isSelected = _invitationTabIndex == index;
+    final applicationCount = _controller.pendingInvitations
+        .where((inv) => inv.type == 'application')
+        .length;
+    final invitationCount = _controller.pendingInvitations
+        .where((inv) => inv.type == 'invitation')
+        .length;
+    final badgeCount = index == 0 ? applicationCount : invitationCount;
+    
+    return GestureDetector(
+      onTap: () => setState(() => _invitationTabIndex = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: isSelected
+                    ? const Color(0xFF212631)
+                    : const Color(0xFF747A8A),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (badgeCount > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$badgeCount',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildApplicationsList() {
+    final applications = _controller.pendingInvitations
+        .where((inv) => inv.type == 'application')
+        .toList();
+
+    if (applications.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inbox_outlined,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _translate('Chưa có đơn xin vào nào', 'No applications yet'),
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: applications.length,
+      itemBuilder: (context, index) {
+        final app = applications[index];
+        return _buildInvitationCard(app, showActions: true);
+      },
+    );
+  }
+
+  Widget _buildInvitationsList() {
+    final pending = _controller.pendingInvitations
+        .where((inv) => inv.type == 'invitation')
+        .toList();
+
+    if (pending.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.mail_outline,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _translate('Chưa có lời mời nào', 'No invitations yet'),
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: pending.length,
+      itemBuilder: (context, index) {
+        final invite = pending[index];
+        return _buildInvitationCard(invite, showActions: false);
+      },
+    );
+  }
+
+  Widget _buildInvitationCard(GroupInvitation invitation, {bool showActions = true}) {
+    final initials = invitation.displayName.isNotEmpty
+        ? invitation.displayName[0].toUpperCase()
+        : 'U';
+    final daysAgo = DateTime.now().difference(invitation.createdAt).inDays;
+    final timeText = daysAgo == 0
+        ? _translate('Hôm nay', 'Today')
+        : daysAgo == 1
+            ? _translate('Hôm qua', 'Yesterday')
+            : _translate('$daysAgo ngày trước', '$daysAgo days ago');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: const Color(0xFF6366F1),
+                backgroundImage: invitation.avatarUrl.isNotEmpty
+                    ? NetworkImage(invitation.avatarUrl)
+                    : null,
+                child: invitation.avatarUrl.isEmpty
+                    ? Text(
+                        initials,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      invitation.displayName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF212631),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      invitation.email,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF747A8A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (invitation.message != null && invitation.message!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF3B5FE5).withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                invitation.message!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF4B5563),
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          if (showActions)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  timeText,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                ),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        // Decline
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(_translate('Từ chối', 'Declined')),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: const Color(0xFFEF4444),
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          _translate('Hủy', 'Decline'),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFEF4444),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () {
+                        // Accept
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(_translate('Chấp nhận', 'Accepted')),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF3B5FE5),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          _translate('Chấp nhận', 'Accept'),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            )
+          else
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                timeText,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF9CA3AF),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

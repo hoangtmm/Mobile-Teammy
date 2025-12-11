@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/constants/api_constants.dart';
+import '../models/group_invitation_model.dart';
+import '../models/group_member_model.dart';
 import '../models/group_model.dart';
 import '../models/major_model.dart';
 import '../models/skill_model.dart';
@@ -11,10 +13,8 @@ class GroupRemoteDataSource {
   final String baseUrl;
   final http.Client _httpClient;
 
-  GroupRemoteDataSource({
-    required this.baseUrl,
-    http.Client? httpClient,
-  }) : _httpClient = httpClient ?? http.Client();
+  GroupRemoteDataSource({required this.baseUrl, http.Client? httpClient})
+    : _httpClient = httpClient ?? http.Client();
 
   /// Lấy danh sách nhóm của user từ /api/groups/my
   Future<List<GroupModel>> fetchMyGroups(String accessToken) async {
@@ -32,7 +32,8 @@ class GroupRemoteDataSource {
       throw Exception('Failed to fetch groups');
     }
 
-    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    final decoded =
+        jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
     return decoded
         .whereType<Map<String, dynamic>>()
         .map(GroupModel.fromJson)
@@ -44,9 +45,7 @@ class GroupRemoteDataSource {
     String accessToken,
     String groupId,
   ) async {
-    final uri = Uri.parse(
-      '$baseUrl${ApiPath.groupTracking(groupId)}',
-    );
+    final uri = Uri.parse('$baseUrl${ApiPath.groupTracking(groupId)}');
 
     final response = await _httpClient.get(
       uri,
@@ -79,7 +78,8 @@ class GroupRemoteDataSource {
       throw Exception('Failed to fetch majors');
     }
 
-    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    final decoded =
+        jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
     return decoded
         .whereType<Map<String, dynamic>>()
         .map(MajorModel.fromJson)
@@ -92,7 +92,9 @@ class GroupRemoteDataSource {
     String majorName,
   ) async {
     final encodedMajor = Uri.encodeComponent(majorName);
-    final uri = Uri.parse('$baseUrl/api/skills?major=$encodedMajor&pageSize=100');
+    final uri = Uri.parse(
+      '$baseUrl/api/skills?major=$encodedMajor&pageSize=100',
+    );
 
     final response = await _httpClient.get(
       uri,
@@ -106,7 +108,8 @@ class GroupRemoteDataSource {
       throw Exception('Failed to fetch skills: ${response.statusCode}');
     }
 
-    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    final decoded =
+        jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
     return decoded
         .whereType<Map<String, dynamic>>()
         .map(SkillModel.fromJson)
@@ -142,26 +145,34 @@ class GroupRemoteDataSource {
       body: body,
     );
 
-    print('Create Group Response - Status: ${response.statusCode}, Body: ${response.body}');
+    print(
+      'Create Group Response - Status: ${response.statusCode}, Body: ${response.body}',
+    );
 
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception('Failed to create group: ${response.body}');
     }
 
-    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-    
+    final decoded =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+
     // If response only contains id, fetch full group details
     if (decoded.length == 1 && decoded.containsKey('id')) {
       final groupId = decoded['id'] as String;
-      print('Response only contains ID, fetching full group details for: $groupId');
+      print(
+        'Response only contains ID, fetching full group details for: $groupId',
+      );
       return await _fetchGroupDetail(accessToken, groupId);
     }
-    
+
     return GroupModel.fromJson(decoded);
   }
 
   /// Lấy chi tiết nhóm từ /api/groups/my
-  Future<GroupModel> _fetchGroupDetail(String accessToken, String groupId) async {
+  Future<GroupModel> _fetchGroupDetail(
+    String accessToken,
+    String groupId,
+  ) async {
     final groups = await fetchMyGroups(accessToken);
     final group = groups.firstWhere(
       (g) => g.id == groupId,
@@ -171,10 +182,7 @@ class GroupRemoteDataSource {
   }
 
   /// Rời khỏi nhóm DELETE /api/groups/{groupId}/members/me
-  Future<void> leaveGroup(
-    String accessToken,
-    String groupId,
-  ) async {
+  Future<void> leaveGroup(String accessToken, String groupId) async {
     final uri = Uri.parse('$baseUrl${ApiPath.groupLeaveMember(groupId)}');
 
     final response = await _httpClient.delete(
@@ -186,25 +194,33 @@ class GroupRemoteDataSource {
     );
 
     // Log response for debugging
-    print('Leave Group Response - Status: ${response.statusCode}, Body: ${response.body}');
+    print(
+      'Leave Group Response - Status: ${response.statusCode}, Body: ${response.body}',
+    );
 
     if (response.statusCode != 200 && response.statusCode != 204) {
       // Try to parse error message from response
       try {
-        final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-        final message = decoded['message'] as String? ?? decoded['error'] as String?;
-        throw Exception(message ?? 'Failed to leave group (Status: ${response.statusCode})');
+        final decoded =
+            jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        final message =
+            decoded['message'] as String? ?? decoded['error'] as String?;
+        throw Exception(
+          message ?? 'Failed to leave group (Status: ${response.statusCode})',
+        );
       } catch (e) {
         if (e is Exception && e.toString().contains('message')) {
           rethrow;
         }
-        throw Exception('Failed to leave group (Status: ${response.statusCode})');
+        throw Exception(
+          'Failed to leave group (Status: ${response.statusCode})',
+        );
       }
     }
   }
 
   /// Lấy danh sách thành viên của nhóm
-  Future<List<Map<String, dynamic>>> fetchGroupMembers(
+  Future<List<GroupMemberModel>> fetchGroupMembers(
     String accessToken,
     String groupId,
   ) async {
@@ -222,8 +238,12 @@ class GroupRemoteDataSource {
       throw Exception('Failed to fetch group members');
     }
 
-    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
-    return decoded.whereType<Map<String, dynamic>>().toList();
+    final decoded =
+        jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(GroupMemberModel.fromJson)
+        .toList();
   }
 
   /// Tìm kiếm user theo email
@@ -231,9 +251,9 @@ class GroupRemoteDataSource {
     String accessToken,
     String email,
   ) async {
-    final uri = Uri.parse('$baseUrl${ApiPath.usersList}').replace(
-      queryParameters: {'email': email},
-    );
+    final uri = Uri.parse(
+      '$baseUrl${ApiPath.usersList}',
+    ).replace(queryParameters: {'email': email});
 
     final response = await _httpClient.get(
       uri,
@@ -247,7 +267,8 @@ class GroupRemoteDataSource {
       throw Exception('Failed to search users');
     }
 
-    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    final decoded =
+        jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
     return decoded.whereType<Map<String, dynamic>>().toList();
   }
 
@@ -271,14 +292,18 @@ class GroupRemoteDataSource {
 
     if (response.statusCode != 200 && response.statusCode != 201) {
       try {
-        final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-        final message = decoded['message'] as String? ?? decoded['error'] as String?;
+        final decoded =
+            jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        final message =
+            decoded['message'] as String? ?? decoded['error'] as String?;
         throw Exception(message ?? 'Failed to invite user');
       } catch (e) {
         if (e is Exception && e.toString().contains('message')) {
           rethrow;
         }
-        throw Exception('Failed to invite user (Status: ${response.statusCode})');
+        throw Exception(
+          'Failed to invite user (Status: ${response.statusCode})',
+        );
       }
     }
 
@@ -293,7 +318,7 @@ class GroupRemoteDataSource {
   ) async {
     final uri = Uri.parse('$baseUrl${ApiPath.groupUpdate(groupId)}');
 
-    final response = await _httpClient.put(
+    final response = await _httpClient.patch(
       uri,
       headers: {
         'Authorization': 'Bearer $accessToken',
@@ -303,16 +328,26 @@ class GroupRemoteDataSource {
       body: jsonEncode(updateData),
     );
 
+    if (response.statusCode == 204) {
+      // 204 No Content - success but no body to return
+      // Return a basic GroupModel with the updated data
+      return GroupModel.fromJson({'id': groupId, ...updateData});
+    }
+
     if (response.statusCode != 200 && response.statusCode != 201) {
       try {
-        final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-        final message = decoded['message'] as String? ?? decoded['error'] as String?;
+        final decoded =
+            jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        final message =
+            decoded['message'] as String? ?? decoded['error'] as String?;
         throw Exception(message ?? 'Failed to update group');
       } catch (e) {
         if (e is Exception && e.toString().contains('message')) {
           rethrow;
         }
-        throw Exception('Failed to update group (Status: ${response.statusCode})');
+        throw Exception(
+          'Failed to update group (Status: ${response.statusCode})',
+        );
       }
     }
 
@@ -320,5 +355,87 @@ class GroupRemoteDataSource {
       jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
     );
   }
-}
 
+  /// Lấy danh sách lời mời nhóm
+  Future<List<GroupInvitationModel>> fetchInvitations(
+    String accessToken,
+  ) async {
+    final uri = Uri.parse('$baseUrl/api/group-invitations');
+
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch invitations');
+    }
+
+    final decoded =
+        jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(GroupInvitationModel.fromJson)
+        .toList();
+  }
+
+  /// Lấy danh sách pending invitations cho một group
+  Future<List<GroupInvitationModel>> fetchPendingInvitations(
+    String accessToken,
+    String groupId,
+  ) async {
+    final uri = Uri.parse('$baseUrl/api/groups/$groupId/pending');
+
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch pending invitations');
+    }
+
+    final decoded =
+        jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(GroupInvitationModel.fromJson)
+        .toList();
+  }
+
+  /// Lấy danh sách tất cả skills từ /api/skills
+  Future<List<Map<String, dynamic>>> fetchAllSkills() async {
+    final uri = Uri.parse(
+      '$baseUrl/api/skills?pageSize=100&major=Software%20Engineering',
+    );
+
+    final response = await _httpClient.get(
+      uri,
+      headers: {'accept': 'application/json'},
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch skills');
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+
+    // Handle both array and object responses
+    if (decoded is List) {
+      return List<Map<String, dynamic>>.from(decoded);
+    } else if (decoded is Map<String, dynamic>) {
+      // If response is an object with data array inside
+      if (decoded.containsKey('data') && decoded['data'] is List) {
+        return List<Map<String, dynamic>>.from(decoded['data']);
+      }
+    }
+
+    return [];
+  }
+}
