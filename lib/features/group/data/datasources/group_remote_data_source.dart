@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/constants/api_constants.dart';
+import '../models/group_member_model.dart';
 import '../models/group_model.dart';
 import '../models/major_model.dart';
 import '../models/skill_model.dart';
@@ -204,7 +205,7 @@ class GroupRemoteDataSource {
   }
 
   /// Lấy danh sách thành viên của nhóm
-  Future<List<Map<String, dynamic>>> fetchGroupMembers(
+  Future<List<GroupMemberModel>> fetchGroupMembers(
     String accessToken,
     String groupId,
   ) async {
@@ -223,7 +224,10 @@ class GroupRemoteDataSource {
     }
 
     final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
-    return decoded.whereType<Map<String, dynamic>>().toList();
+    return decoded
+      .whereType<Map<String, dynamic>>()
+      .map(GroupMemberModel.fromJson)
+      .toList();
   }
 
   /// Tìm kiếm user theo email

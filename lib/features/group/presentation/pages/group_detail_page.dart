@@ -6,6 +6,7 @@ import '../../../../core/localization/app_language.dart';
 import '../../../auth/domain/entities/auth_session.dart';
 import '../../data/datasources/group_remote_data_source.dart';
 import '../../domain/entities/group.dart';
+import '../../domain/entities/group_member.dart';
 import '../controllers/group_detail_controller.dart';
 import '../widgets/skill_tag.dart';
 
@@ -518,7 +519,7 @@ class _TechnologiesSection extends StatelessWidget {
 // ============ TEAM MEMBERS SECTION ============
 class _TeamMembersSection extends StatelessWidget {
   final Group group;
-  final List<Map<String, dynamic>> members;
+  final List<GroupMember> members;
   final bool isLeader;
   final AppLanguage language;
   final VoidCallback onInvite;
@@ -574,10 +575,11 @@ class _TeamMembersSection extends StatelessWidget {
     );
   }
 
-  Widget _buildMemberCard(Map<String, dynamic> member) {
-    final displayName = member['displayName'] as String?;
-    final role = member['role'] as String?;
-    final avatarUrl = member['avatarUrl'] as String?;
+  Widget _buildMemberCard(GroupMember member) {
+    final displayName = member.displayName;
+    final role = member.role;
+    final hasRole = role.trim().isNotEmpty;
+    final avatarUrl = member.avatarUrl;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -590,19 +592,22 @@ class _TeamMembersSection extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            _buildAvatar(displayName ?? '', avatarUrl),
+            _buildAvatar(displayName, avatarUrl),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(displayName ?? 'Unknown', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1C293F))),
+                  Text(displayName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF1C293F))),
                   const SizedBox(height: 4),
-                  Text(_formatRole(role), style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                  Text(
+                    _formatRole(hasRole ? role : null),
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                  ),
                 ],
               ),
             ),
-            if (role != null)
+            if (hasRole)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(

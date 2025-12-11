@@ -5,6 +5,7 @@ import '../../../auth/domain/entities/auth_session.dart';
 import '../../data/datasources/group_remote_data_source.dart';
 import '../../data/repositories/group_repository_impl.dart';
 import '../../domain/entities/group.dart';
+import '../../domain/entities/group_member.dart';
 
 class GroupDetailController extends ChangeNotifier {
   final String groupId;
@@ -16,14 +17,14 @@ class GroupDetailController extends ChangeNotifier {
   bool _loading = true;
   String? _error;
   int _groupProgress = 0;
-  List<Map<String, dynamic>> _members = [];
+  List<GroupMember> _members = [];
 
   // Getters
   Group? get group => _group;
   bool get loading => _loading;
   String? get error => _error;
   int get groupProgress => _groupProgress;
-  List<Map<String, dynamic>> get members => _members;
+  List<GroupMember> get members => _members;
 
   GroupDetailController({
     required this.groupId,
@@ -55,7 +56,7 @@ class GroupDetailController extends ChangeNotifier {
         progress = 0;
       }
 
-      final members = await _dataSource.fetchGroupMembers(
+      final members = await _repository.fetchGroupMembers(
         session.accessToken,
         groupId,
       );
