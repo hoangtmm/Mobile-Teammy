@@ -42,6 +42,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   final ScrollController _scrollController = ScrollController();
 
   List<ChatMessage> _messages = [];
+  List<Map<String, dynamic>> _activeUsers = [];
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasMore = true;

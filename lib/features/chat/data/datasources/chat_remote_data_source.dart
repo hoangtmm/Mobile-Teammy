@@ -17,6 +17,7 @@ class ChatRemoteDataSource {
   Future<List<ChatConversationModel>> fetchConversations(
     String accessToken,
   ) async {
+    // Fetch DM conversations
     final uri = Uri.parse('$baseUrl${ApiPath.chatConversations}');
     final response = await _httpClient.get(
       uri,

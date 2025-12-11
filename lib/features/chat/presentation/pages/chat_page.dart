@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/api_constants.dart';
@@ -77,6 +79,7 @@ class _ChatPageState extends State<ChatPage> {
       });
     } catch (error) {
       if (!mounted) return;
+      print('[ChatPage] Error loading conversations: $error');
       setState(() {
         _errorMessage = error.toString();
         _loading = false;
