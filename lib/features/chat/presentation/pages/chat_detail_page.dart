@@ -164,7 +164,25 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
       _messageSub = _hubService.messages.listen(
         (message) {
           if (!mounted) return;
-          setState(() => _messages = [..._messages, message]);
+          setState(() {
+            // Check if this is a real message replacing an optimistic one
+            int optimisticIndex = -1;
+            for (int i = 0; i < _messages.length; i++) {
+              final m = _messages[i];
+              if (m.content == message.content && 
+                  m.senderId == message.senderId &&
+                  m.messageId.startsWith('temp_')) {
+                optimisticIndex = i;
+                break;
+              }
+            }
+            
+            if (optimisticIndex >= 0) {
+              _messages[optimisticIndex] = message;
+            } else {
+              _messages = [..._messages, message];
+            }
+          });
           _scrollToBottom();
         },
         onError: (error) {
@@ -194,8 +212,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
       _activeUsersSub = _hubService.activeUsers.listen(
         (users) {
-          if (!mounted) return;
-          setState(() => _activeUsers = users);
+          // Active users received (can be used for future features)
         },
         onError: (error) {
           // Silent fail
@@ -228,11 +245,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     final text = _composerController.text.trim();
     if (text.isEmpty || _sending) return;
 
+    final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
+    final userId = widget.session.userId;
+    
     // Optimistic update - add message immediately to UI
     final optimisticMessage = ChatMessage(
-      messageId: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+      messageId: tempId,
       sessionId: widget.conversation.sessionId,
-      senderId: widget.session.userId,
+      senderId: userId,
       senderName: widget.session.displayName ?? 'You',
       content: text,
       createdAt: DateTime.now(),
@@ -252,12 +272,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         sessionId: widget.conversation.sessionId,
         content: text,
       );
+      // Keep optimistic message - server will replace it via realtime with real ID
     } catch (e) {
       if (mounted) {
         _showError('Failed to send message: $e');
         setState(() {
           _messages = _messages
-              .where((m) => m.messageId != optimisticMessage.messageId)
+              .where((m) => m.messageId != tempId)
               .toList();
         });
       }
@@ -675,307 +696,5 @@ class _Composer extends StatelessWidget {
   }
 }
 
-class _ActiveUsersBar extends StatelessWidget {
-  const _ActiveUsersBar({
-    required this.users,
-    required this.language,
-  });
-
-  final List<Map<String, dynamic>> users;
-  final AppLanguage language;
-
-  String _t(String vi, String en) => language == AppLanguage.vi ? vi : en;
-
-  @override
-  Widget build(BuildContext context) {
-    if (users.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _t('Hoạt động', 'Active'),
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF5DADE2),
-            ),
-          ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: users.map((user) {
-                final displayName = user['displayName'] as String? ?? 'Unknown';
-                return Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE0F2F1),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFF5DADE2), width: 1),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF5DADE2),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          displayName,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF1F2A37),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActiveUsersModal extends StatefulWidget {
-  const _ActiveUsersModal({
-    required this.users,
-    required this.language,
-  });
-
-  final List<Map<String, dynamic>> users;
-  final AppLanguage language;
-
-  @override
-  State<_ActiveUsersModal> createState() => _ActiveUsersModalState();
-}
-
-class _ActiveUsersModalState extends State<_ActiveUsersModal> {
-  int _selectedTabIndex = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    final isVi = widget.language == AppLanguage.vi;
-    final tabLabels = [
-      isVi ? 'Thêm' : 'Add',
-      isVi ? 'Tất cả (${_getAllCount()})' : 'All (${_getAllCount()})',
-      isVi ? 'Hoạt động (${widget.users.length})' : 'Active (${widget.users.length})',
-    ];
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  isVi ? 'Danh sách thành viên' : 'Members',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF174230),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                  splashRadius: 20,
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, thickness: 1),
-          // Tab Buttons
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: List.generate(
-                  tabLabels.length,
-                  (index) => Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: GestureDetector(
-                      onTap: () => setState(() => _selectedTabIndex = index),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _selectedTabIndex == index
-                              ? const Color(0xFFE0F2F1)
-                              : const Color(0xFFF5F5F5),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: _selectedTabIndex == index
-                                ? const Color(0xFF5DADE2)
-                                : const Color(0xFFE5E7EB),
-                            width: 1,
-                          ),
-                        ),
-                        child: Text(
-                          tabLabels[index],
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: _selectedTabIndex == index
-                                ? const Color(0xFF5DADE2)
-                                : const Color(0xFF667085),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const Divider(height: 1, thickness: 1),
-          // Content
-          Expanded(
-            child: _buildTabContent(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabContent() {
-    switch (_selectedTabIndex) {
-      case 0: // Add tab
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.person_add_outlined,
-                size: 48,
-                color: const Color(0xFFBDBDBD),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                widget.language == AppLanguage.vi
-                    ? 'Thêm thành viên mới'
-                    : 'Add new members',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF999999),
-                ),
-              ),
-            ],
-          ),
-        );
-      case 1: // All tab - placeholder
-        return ListView(
-          padding: const EdgeInsets.all(12),
-          children: [
-            _buildMemberTile('Thành viên 1', true),
-            _buildMemberTile('Thành viên 2', false),
-            _buildMemberTile('Thành viên 3', true),
-          ],
-        );
-      case 2: // Active tab
-        if (widget.users.isEmpty) {
-          return Center(
-            child: Text(
-              widget.language == AppLanguage.vi
-                  ? 'Không có thành viên hoạt động'
-                  : 'No active members',
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF999999),
-              ),
-            ),
-          );
-        }
-        return ListView(
-          padding: const EdgeInsets.all(12),
-          children: widget.users
-              .map((user) => _buildMemberTile(
-                    user['displayName'] as String? ?? 'Unknown',
-                    true,
-                  ))
-              .toList(),
-        );
-      default:
-        return const SizedBox();
-    }
-  }
-
-  Widget _buildMemberTile(String displayName, bool isActive) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: const Color(0xFFE3F2FD),
-            child: Text(
-              displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1976D2),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  displayName,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF174230),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (isActive)
-            Container(
-              width: 10,
-              height: 10,
-              decoration: const BoxDecoration(
-                color: Color(0xFF2ECC71),
-                shape: BoxShape.circle,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  int _getAllCount() {
-    // Placeholder - in real implementation, fetch from backend
-    return widget.users.length + 3;
-  }
-}
 
 

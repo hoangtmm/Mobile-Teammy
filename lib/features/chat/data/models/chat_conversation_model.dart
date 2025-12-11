@@ -40,11 +40,10 @@ class ChatConversationModel extends ChatConversation {
       updatedAt = DateTime.tryParse(updatedAtRaw);
     }
 
-    // Generate a unique sessionId for group (use groupId as sessionId)
     final groupId = json['id'] as String? ?? '';
     
     return ChatConversationModel(
-      sessionId: groupId,  // Use groupId as sessionId for groups
+      sessionId: groupId, 
       type: 'group',
       groupId: groupId,
       groupName: json['name'] as String?,

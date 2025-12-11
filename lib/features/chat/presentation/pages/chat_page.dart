@@ -61,25 +61,17 @@ class _ChatPageState extends State<ChatPage> {
         accessToken: widget.session.accessToken,
       );
       if (!mounted) return;
-
-      print('[ChatPage] Loaded ${items.length} conversations');
-      items.forEach((item) {
-        print('[ChatPage] - ${item.displayName} (type: ${item.type}, isGroup: ${item.isGroup}, groupId: ${item.groupId})');
-      });
       
       // Remove duplicates by sessionId/groupId
       final seen = <String>{};
       final uniqueItems = <ChatConversation>[];
       for (final item in items) {
         final id = item.isGroup ? (item.groupId ?? '') : item.sessionId;
-        print('[ChatPage] Processing ${item.displayName}: id=$id, seen=$seen');
         if (!seen.contains(id)) {
           seen.add(id);
           uniqueItems.add(item);
         }
       }
-      
-      print('[ChatPage] Final conversations after dedup: ${uniqueItems.length}');
       
       setState(() {
         _conversations = uniqueItems;

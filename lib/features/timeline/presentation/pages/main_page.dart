@@ -14,7 +14,6 @@ import '../../../tasks/presentation/pages/tasks_page.dart';
 import '../../../group/presentation/pages/group_page.dart';
 import '../../../onboarding/presentation/pages/onboarding_page.dart';
 import 'account_settings_page.dart';
-
 class MainPage extends StatefulWidget {
   const MainPage({
     super.key,
