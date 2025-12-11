@@ -4,6 +4,7 @@ import 'package:feather_icons/feather_icons.dart';
 import '../../../../core/localization/app_language.dart';
 import '../../data/datasources/group_mentor_data_source.dart';
 import '../../data/datasources/group_topic_data_source.dart';
+import '../../data/datasources/group_remote_data_source.dart';
 import '../../domain/entities/group.dart';
 
 class TopicSelectionPage extends StatefulWidget {
@@ -13,6 +14,7 @@ class TopicSelectionPage extends StatefulWidget {
   final String? groupId;
   final String? accessToken;
   final String? mentorUserId;
+  final Group? group;
 
   const TopicSelectionPage({
     Key? key,
@@ -22,6 +24,7 @@ class TopicSelectionPage extends StatefulWidget {
     this.groupId,
     this.accessToken,
     this.mentorUserId,
+    this.group,
   }) : super(key: key);
 
   @override
@@ -160,12 +163,27 @@ class _TopicSelectionPageState extends State<TopicSelectionPage> {
   }
 
   Future<void> _handleSelectTopicWithInvite(Topic topic, String message) async {
-    if (widget.groupId == null || widget.accessToken == null || widget.mentorUserId == null) {
+    if (widget.groupId == null || widget.accessToken == null) {
       _showErrorSnackBar(
         _translate('Lỗi: Thiếu thông tin', 'Error: Missing information'),
       );
       return;
     }
+
+    // Check if topic has mentors assigned
+    if (topic.mentors == null || topic.mentors!.isEmpty) {
+      _showErrorSnackBar(
+        _translate(
+          'Chủ đề này chưa có cố vấn được gán. Vui lòng liên hệ quản trị viên.',
+          'This topic does not have any mentors assigned. Please contact admin.',
+        ),
+      );
+      return;
+    }
+
+    // Use the first mentor from the topic (they are already assigned to this topic)
+    final topicMentor = topic.mentors!.first;
+    print('[MENTOR SELECTION] Using mentor from topic: ${topicMentor.mentorId} - ${topicMentor.mentorName}');
 
     // Show loading dialog
     showDialog(
@@ -196,24 +214,152 @@ class _TopicSelectionPageState extends State<TopicSelectionPage> {
     try {
       const baseUrl = 'https://api.vps-sep490.io.vn';
       
-      // Call both APIs in parallel
+      print('=== [TOPIC SELECTION] Starting mentor invite process ===');
+      print('GroupId: ${widget.groupId}');
+      print('MentorUserId: ${widget.mentorUserId}');
+      print('TopicId: ${topic.topicId}');
+      print('Message: $message');
+      
+      // Step 1: Fetch latest group data to verify it's full
+      final groupDataSource = GroupRemoteDataSource(baseUrl: baseUrl);
+      print('[API 1] Fetching groups from /api/groups/my...');
+      final groups = await groupDataSource.fetchMyGroups(widget.accessToken!);
+      print('[API 1] Success! Fetched ${groups.length} group(s)');
+      
+      final latestGroup = groups.firstWhere(
+        (g) => g.id == widget.groupId,
+        orElse: () => throw Exception('Group not found'),
+      );
+      
+      print('[GROUP DATA]');
+      print('  Group ID: ${latestGroup.id}');
+      print('  Group Name: ${latestGroup.name}');
+      print('  Current Members: ${latestGroup.currentMembers}');
+      print('  Max Members: ${latestGroup.maxMembers}');
+      print('  Status: ${latestGroup.status}');
+      print('  Role: ${latestGroup.role}');
+      print('  Members List Length: ${latestGroup.members.length}');
+      print('  Leader: ${latestGroup.leader?.displayName ?? "Unknown"}');
+      print('  ⚠️  IMPORTANT: currentMembers (${latestGroup.currentMembers}) != members.length (${latestGroup.members.length})');
+      print('     → Leader might be counted in currentMembers but not in members list');
+      print('  Full Members List (including leader):');
+      
+      // Include leader in the list if not already there
+      final allMembers = <dynamic>[];
+      if (latestGroup.leader != null) {
+        allMembers.add(latestGroup.leader);
+      }
+      allMembers.addAll(latestGroup.members);
+      
+      for (var i = 0; i < allMembers.length; i++) {
+        dynamic member = allMembers[i];
+        String displayName = '';
+        String email = '';
+        String role = '';
+        
+        if (member.runtimeType.toString().contains('GroupMember')) {
+          displayName = member.displayName;
+          email = member.email;
+          role = member.role;
+        } else {
+          displayName = member.displayName ?? 'Unknown';
+          email = member.email ?? 'N/A';
+          role = member.role ?? 'unknown';
+        }
+        
+        print('    [$i] $displayName ($email) - Role: $role');
+      }
+      print('  Total including leader: ${allMembers.length}');
+
+      // Validation 1: Check if group is full
+      print('[CHECK] currentMembers (${latestGroup.currentMembers}) < maxMembers (${latestGroup.maxMembers})?');
+      if (latestGroup.currentMembers < latestGroup.maxMembers) {
+        print('[RESULT] ❌ Group is NOT full! Need ${latestGroup.maxMembers - latestGroup.currentMembers} more member(s)');
+        if (!mounted) return;
+        Navigator.of(context).pop(); // Close loading dialog
+
+        _showErrorSnackBar(
+          _translate(
+            'Nhóm chưa đủ thành viên. Hiện có ${latestGroup.currentMembers}/${latestGroup.maxMembers}. Vui lòng thêm ${latestGroup.maxMembers - latestGroup.currentMembers} thành viên trước khi chọn chủ đề.',
+            'Group is not full yet. Current: ${latestGroup.currentMembers}/${latestGroup.maxMembers}. Please add ${latestGroup.maxMembers - latestGroup.currentMembers} more member(s) before selecting topic.',
+          ),
+        );
+        return;
+      }
+      print('[RESULT] ✅ Group is FULL!');
+      
+      // Validation 2: Check if group already has a topic
+      print('[CHECK] Group already has topic?');
+      if (latestGroup.topic != null) {
+        print('[RESULT] ❌ Group already has a topic!');
+        if (!mounted) return;
+        Navigator.of(context).pop(); // Close loading dialog
+
+        _showErrorSnackBar(
+          _translate(
+            'Nhóm của bạn đã có chủ đề rồi. Không thể thay đổi chủ đề.',
+            'Your group already has a topic assigned. Cannot change topic.',
+          ),
+        );
+        return;
+      }
+      print('[RESULT] ✅ Group has no topic!');
+      
+      // Validation 3: Check if semester is active
+      print('[CHECK] Semester active? isActive=${latestGroup.semester.isActive}');
+      if (!latestGroup.semester.isActive) {
+        print('[RESULT] ❌ Semester is not active!');
+        if (!mounted) return;
+        Navigator.of(context).pop(); // Close loading dialog
+
+        _showErrorSnackBar(
+          _translate(
+            'Học kỳ hiện tại không hoạt động. Không thể chọn chủ đề lúc này.',
+            'Current semester is not active. Cannot select topic at this time.',
+          ),
+        );
+        return;
+      }
+      print('[RESULT] ✅ Semester is active!');
+      
+      print('[VALIDATION] ✅ All validations passed!');
+
+      // Step 2: If all validations pass, call both APIs in parallel
       final mentorDataSource = GroupMentorDataSource(baseUrl: baseUrl);
       final topicDataSource = GroupTopicDataSource(baseUrl: baseUrl);
+      
+      print('[API 2 & 3] Calling mentor invite & update topic in parallel...');
+      print('  API 2: POST /api/groups/${widget.groupId}/mentor-invites');
+      print('  API 3: PATCH /api/groups/${widget.groupId} with topicId: ${topic.topicId}');
 
-      await Future.wait([
-        mentorDataSource.inviteMentor(
-          accessToken: widget.accessToken!,
-          groupId: widget.groupId!,
-          mentorUserId: widget.mentorUserId!,
-          topicId: topic.topicId,
-          message: message,
-        ),
-        topicDataSource.updateGroupTopic(
-          accessToken: widget.accessToken!,
-          groupId: widget.groupId!,
-          topicId: topic.topicId,
-        ),
-      ]);
+      try {
+        await Future.wait([
+          mentorDataSource.inviteMentor(
+            accessToken: widget.accessToken!,
+            groupId: widget.groupId!,
+            mentorUserId: topicMentor.mentorId,
+            topicId: topic.topicId,
+            message: message,
+          ),
+          topicDataSource.updateGroupTopic(
+            accessToken: widget.accessToken!,
+            groupId: widget.groupId!,
+            topicId: topic.topicId,
+          ),
+        ]);
+        
+        print('[API 2 & 3] ✅ Both APIs completed successfully!');
+      } on GroupMustBeFullException catch (e) {
+        print('[API 2] ❌ GroupMustBeFullException thrown');
+        print('[API 2] Error: $e');
+        print('[API 2] Backend says: Group is NOT full enough');
+        rethrow;
+      } catch (e) {
+        print('[API 2 & 3] ❌ Error occurred');
+        print('[API 2 & 3] Error type: ${e.runtimeType}');
+        print('[API 2 & 3] Error message: $e');
+        rethrow;
+      }
 
       if (!mounted) return;
       Navigator.of(context).pop(); // Close loading dialog
@@ -227,7 +373,21 @@ class _TopicSelectionPageState extends State<TopicSelectionPage> {
 
       // Pop current page and return the topic
       Navigator.of(context).pop(topic);
+    } on MentorNotAssignedToTopicException catch (e) {
+      print('[ERROR] MentorNotAssignedToTopicException caught!');
+      print('[ERROR] Message: $e');
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close loading dialog
+
+      _showErrorSnackBar(
+        _translate(
+          'Cố vấn chưa được gán cho chủ đề này. Vui lòng chọn cố vấn được gán cho chủ đề.',
+          'This mentor is not assigned to this topic. Please select a mentor assigned to this topic.',
+        ),
+      );
     } on GroupMustBeFullException {
+      print('[ERROR] GroupMustBeFullException caught!');
+      print('[ERROR] Backend rejected the mentor invite - Group is NOT full');
       if (!mounted) return;
       Navigator.of(context).pop(); // Close loading dialog
 
@@ -237,15 +397,26 @@ class _TopicSelectionPageState extends State<TopicSelectionPage> {
           'Group must be full before inviting mentor. Please add enough members first.',
         ),
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[ERROR] ═══════════════════════════════════════════');
+      print('[ERROR] Exception caught in _handleSelectTopicWithInvite');
+      print('[ERROR] Type: ${e.runtimeType}');
+      print('[ERROR] Message: $e');
+      print('[ERROR] Full error: ${e.toString()}');
+      print('[ERROR] StackTrace:');
+      print(stackTrace);
+      print('[ERROR] ═══════════════════════════════════════════');
+      
       if (!mounted) return;
       Navigator.of(context).pop(); // Close loading dialog
 
       String errorMessage = e.toString();
       if (errorMessage.contains('409')) {
+        print('[ERROR] ⚠️  Detected HTTP 409 status');
+        print('[ERROR] Backend validation failed - Group member count issue');
         errorMessage = _translate(
-          'Nhóm chưa đủ thành viên để mời mentor',
-          'Group must be full before inviting mentor',
+          'Nhóm chưa đủ thành viên để mời mentor (HTTP 409)',
+          'Group must be full before inviting mentor (HTTP 409)',
         );
       }
 

@@ -22,6 +22,15 @@ class GroupMentorDataSource {
   }) async {
     final uri = Uri.parse('$baseUrl/api/groups/$groupId/mentor-invites');
     
+    final payload = {
+      'mentorUserId': mentorUserId,
+      'topicId': topicId,
+      'message': message,
+    };
+    
+    print('[MENTOR DATA SOURCE] POST $uri');
+    print('[MENTOR DATA SOURCE] Payload: ${jsonEncode(payload)}');
+    
     final response = await _httpClient.post(
       uri,
       headers: {
@@ -29,30 +38,49 @@ class GroupMentorDataSource {
         'Content-Type': 'application/json',
         'accept': 'application/json',
       },
-      body: jsonEncode({
-        'mentorUserId': mentorUserId,
-        'topicId': topicId,
-        'message': message,
-      }),
+      body: jsonEncode(payload),
     );
 
+    print('[MENTOR DATA SOURCE] Response Status: ${response.statusCode}');
+    print('[MENTOR DATA SOURCE] Response Body: ${response.body}');
+    
     if (response.statusCode == 409) {
-      throw GroupMustBeFullException(
-        'Group must be full before inviting mentor',
-      );
+      print('[MENTOR DATA SOURCE] 409 Error - Parsing response body...');
+      final errorMessage = response.body;
+      print('[MENTOR DATA SOURCE] Error details: $errorMessage');
+      
+      // Throw different exceptions based on error message
+      if (errorMessage.contains('Mentor is not assigned to this topic')) {
+        throw MentorNotAssignedToTopicException(errorMessage);
+      } else {
+        throw GroupMustBeFullException(
+          'Group must be full before inviting mentor',
+        );
+      }
     }
 
-    if (response.statusCode != 204 && response.statusCode != 200) {
+    // Accept 200, 202, 204 as success
+    if (response.statusCode != 204 && response.statusCode != 200 && response.statusCode != 202) {
       throw Exception(
         'Failed to invite mentor (${response.statusCode}): ${response.body}',
       );
     }
+    
+    print('[MENTOR DATA SOURCE] ✅ Mentor invite successful (${response.statusCode})');
+    print('[MENTOR DATA SOURCE] Response: ${response.body}');
   }
 }
 
 class GroupMustBeFullException implements Exception {
   final String message;
   GroupMustBeFullException(this.message);
+
+  @override
+  String toString() => message;
+}
+class MentorNotAssignedToTopicException implements Exception {
+  final String message;
+  MentorNotAssignedToTopicException(this.message);
 
   @override
   String toString() => message;
