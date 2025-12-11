@@ -37,28 +37,13 @@ class ChatRemoteDataSource {
     final decoded =
         jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
 
-    print('[ChatRemoteDataSource] API Response: $decoded');
-
     final conversations = decoded
         .whereType<Map<String, dynamic>>()
-        .map((json) {
-          print('[ChatRemoteDataSource] Parsing conversation: $json');
-          return ChatConversationModel.fromJson(json);
-        })
+        .map((json) => ChatConversationModel.fromJson(json))
         .toList();
-
-    print('[ChatRemoteDataSource] Total DM conversations: ${conversations.length}');
-    conversations.forEach((c) {
-      print('[ChatRemoteDataSource] - ${c.displayName} (type: ${c.type}, isGroup: ${c.isGroup})');
-    });
-
-    // Fetch group chats
     final groupConversations = await _fetchGroupConversations(accessToken);
     
-    final allConversations = [...conversations, ...groupConversations];
-    print('[ChatRemoteDataSource] Total conversations (DM + Groups): ${allConversations.length}');
-
-    return allConversations;
+    return [...conversations, ...groupConversations];
   }
 
   Future<List<ChatConversationModel>> _fetchGroupConversations(
@@ -75,36 +60,20 @@ class ChatRemoteDataSource {
       );
 
       if (response.statusCode != 200) {
-        print('[ChatRemoteDataSource] Failed to fetch groups: ${response.statusCode}');
         return [];
       }
 
       final decoded =
           jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
 
-      print('[ChatRemoteDataSource] Groups API Response: $decoded');
-
-      final groupConversations = decoded
+      return decoded
           .whereType<Map<String, dynamic>>()
-          .map((json) {
-            print('[ChatRemoteDataSource] Parsing group: $json');
-            return ChatConversationModel.fromGroupJson(json);
-          })
+          .map((json) => ChatConversationModel.fromGroupJson(json))
           .toList();
-
-      print('[ChatRemoteDataSource] Total groups: ${groupConversations.length}');
-      groupConversations.forEach((c) {
-        print('[ChatRemoteDataSource] - ${c.displayName} (type: ${c.type}, groupId: ${c.groupId})');
-      });
-
-      return groupConversations;
     } catch (e) {
-      print('[ChatRemoteDataSource] Error fetching groups: $e');
       return [];
     }
   }
-
-
   Future<List<ChatMessageModel>> fetchSessionMessages({
     required String accessToken,
     required String sessionId,
@@ -185,7 +154,6 @@ class ChatRemoteDataSource {
         )
         .toList();
   }
-
   Future<void> sendMessage({
     required String accessToken,
     required String sessionId,
