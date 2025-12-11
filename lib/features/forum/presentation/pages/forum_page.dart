@@ -3,11 +3,19 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/localization/app_language.dart';
 import '../../../auth/domain/entities/auth_session.dart';
+import '../../../group/data/datasources/group_remote_data_source.dart';
+import '../../../group/data/repositories/group_repository_impl.dart';
+import '../../../group/domain/repositories/group_repository.dart';
 import '../../data/datasources/forum_remote_data_source.dart';
 import '../../data/repositories/forum_repository_impl.dart';
 import '../../domain/entities/forum_membership.dart';
 import '../../domain/entities/forum_post.dart';
 import '../../domain/repositories/forum_repository.dart';
+import '../../../auth/data/datasources/user_remote_data_source.dart';
+import '../../../auth/domain/entities/user_profile.dart';
+import 'forum_post_detail_page.dart';
+import 'forum_create_recruitment_post_page.dart';
+import 'forum_create_personal_post_modal.dart';
 
 enum _ForumTab { groups, individuals }
 
@@ -23,6 +31,9 @@ class ForumPage extends StatefulWidget {
 
 class _ForumPageState extends State<ForumPage> {
   late final ForumRepository _repository;
+  late final GroupRepository _groupRepository;
+  late final UserRemoteDataSource _userDataSource;
+  UserProfile? _userProfile;
 
   _ForumTab _tab = _ForumTab.groups;
   ForumMembership? _membership;
@@ -50,6 +61,10 @@ class _ForumPageState extends State<ForumPage> {
     _repository = ForumRepositoryImpl(
       remoteDataSource: ForumRemoteDataSource(baseUrl: kApiBaseUrl),
     );
+    _groupRepository = GroupRepositoryImpl(
+      remoteDataSource: GroupRemoteDataSource(baseUrl: kApiBaseUrl),
+    );
+    _userDataSource = UserRemoteDataSource(baseUrl: kApiBaseUrl);
     _loadAll();
   }
 
@@ -71,10 +86,12 @@ class _ForumPageState extends State<ForumPage> {
       final membership = await _repository.fetchMembership(token);
       final groups = await _repository.fetchRecruitmentPosts(token);
       final individuals = await _repository.fetchPersonalPosts(token);
+      final profile = await _userDataSource.getProfile(token);
 
       if (!mounted) return;
       setState(() {
         _membership = membership;
+        _userProfile = profile;
         _groupPosts
           ..clear()
           ..addAll(groups);
@@ -113,41 +130,129 @@ class _ForumPageState extends State<ForumPage> {
     return '${d.day}/${d.month}/${d.year}';
   }
 
+  String _timeAgoFrom(DateTime? date) {
+    if (date == null) return '';
+    final now = DateTime.now();
+    final diff = now.difference(date.toLocal());
+
+    if (diff.inMinutes < 1) {
+      return _t('vừa xong', 'just now');
+    } else if (diff.inMinutes < 60) {
+      final m = diff.inMinutes;
+      return widget.language == AppLanguage.vi
+          ? '$m phút trước'
+          : '$m minutes ago';
+    } else if (diff.inHours < 24) {
+      final h = diff.inHours;
+      return widget.language == AppLanguage.vi
+          ? '$h giờ trước'
+          : '$h hours ago';
+    } else if (diff.inDays < 7) {
+      final d = diff.inDays;
+      return widget.language == AppLanguage.vi
+          ? '$d ngày trước'
+          : '$d days ago';
+    }
+
+    // lâu quá thì hiện dạng dd/MM/yyyy
+    return _formatDateShort(date);
+  }
+
   bool _isClosed(ForumPost post) {
     if (post.expiresAt == null) return false;
     return post.expiresAt!.isBefore(DateTime.now());
   }
 
-  // TODO: sau nếu muốn dùng màn tạo post chi tiết thì thay SnackBar bằng Navigator.push
+  // Helper methods để kiểm tra quyền tạo bài
+  bool _shouldShowGroupPostButton() {
+    // Hiện nút tạo bài tuyển nếu user có group và là leader hoặc member
+    return _membership?.hasGroup == true;
+  }
+
+  bool _shouldShowPersonalPostButton() {
+    // Ẩn nút tạo bài cá nhân nếu user là leader
+    // Hiện nếu: chưa có group HOẶC là member (không phải leader)
+    if (_membership?.hasGroup != true) return true; // Chưa có group
+    return _membership?.status != 'leader'; // Có group nhưng không phải leader
+  }
+
   Future<void> _openCreateRecruitmentPost() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _t(
-            'Màn tạo bài tuyển sẽ được implement sau.',
-            'Create recruitment post screen will be implemented later.',
-          ),
-        ),
-      ),
+    final result = await showCreateRecruitmentPostModal(
+      context: context,
+      session: widget.session,
+      language: widget.language,
+      repository: _repository,
+      membership: _membership,
     );
+
+    if (!mounted) return;
+
+    if (result == 'success') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _t('Tạo bài tuyển thành công', 'Recruitment post created'),
+          ),
+          backgroundColor: const Color(0xFF16A34A),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      _loadAll();
+    }
   }
 
   Future<void> _openCreatePersonalPost() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _t(
-            'Màn tạo bài cá nhân sẽ được implement sau.',
-            'Create personal post screen will be implemented later.',
+    if (_userProfile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _t('Đang tải thông tin người dùng...', 'Loading user profile...'),
           ),
         ),
-      ),
+      );
+      return;
+    }
+
+    final result = await showCreatePersonalPostModal(
+      context: context,
+      session: widget.session,
+      language: widget.language,
+      repository: _repository,
+      userProfile: _userProfile!,
     );
+
+    if (!mounted) return;
+
+    if (result == 'success') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _t('Tạo profile post thành công', 'Profile post created'),
+          ),
+          backgroundColor: const Color(0xFF16A34A),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      _loadAll();
+    } else if (result != null && result.startsWith('error:')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _t(
+              'Không thể tạo bài: ${result.substring(6)}',
+              'Failed to create post: ${result.substring(6)}',
+            ),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _showApplyModal(ForumPost post) async {
     if (post.hasApplied) {
-      // Nếu đã apply, hiển thị thông báo
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -161,11 +266,7 @@ class _ForumPageState extends State<ForumPage> {
       return;
     }
 
-    setState(() {
-      _applyingPost = post;
-      _selectedPosition = null;
-      _messageController.clear();
-    });
+    final pageContext = context;
 
     final positions = (post.positionNeeded ?? '')
         .split(',')
@@ -173,203 +274,255 @@ class _ForumPageState extends State<ForumPage> {
         .where((e) => e.isNotEmpty)
         .toList();
 
+    // trạng thái LOCAL cho dialog
+    String? selectedPosition;
+    _messageController.clear();
+
     await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              _t('Ứng tuyển vào nhóm', 'Apply to group'),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${_t('Ứng tuyển vào:', 'Applying to:')} ${post.groupName ?? post.title}',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.normal,
-                color: Color(0xFF6B7280),
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Position selector
-              if (positions.isNotEmpty) ...[
-                Text(
-                  _t(
-                    'Vị trí bạn muốn ứng tuyển',
-                    'Position you\'re applying for',
+      context: pageContext,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setStateDialog) => AlertDialog(
+            title: Text(_t('Ứng tuyển vào bài viết', 'Apply to Post')),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (positions.isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _t('Chọn vị trí', 'Select Position'),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButton<String>(
+                          value: selectedPosition,
+                          isExpanded: true,
+                          hint: Text(_t('Chọn vị trí', 'Choose a position')),
+                          items: positions
+                              .map(
+                                (p) =>
+                                    DropdownMenuItem(value: p, child: Text(p)),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            setStateDialog(() {
+                              selectedPosition = value;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  Text(
+                    _t(
+                      'Tại sao bạn muốn tham gia dự án này?',
+                      'Why you want to join this project?',
+                    ),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: _selectedPosition,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _messageController,
+                    minLines: 3,
+                    maxLines: 5,
+                    decoration: InputDecoration(
+                      hintText: _t(
+                        'Nhập mô tả...',
+                        'Tell us about yourself...',
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
-                  hint: Text(_t('Chọn vị trí', 'Select a role')),
-                  items: positions
-                      .map((p) => DropdownMenuItem(value: p, child: Text(p)))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() => _selectedPosition = value);
-                  },
-                ),
-                const SizedBox(height: 16),
-              ],
-              // Message
-              Text(
-                _t(
-                  'Tại sao bạn muốn tham gia dự án này?',
-                  'Why you want to join this project?',
-                ),
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
+                ],
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _messageController,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: _t('Nhập mô tả...', 'Enter description'),
-                  border: const OutlineInputBorder(),
-                ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text(_t('Huỷ', 'Cancel')),
+              ),
+              ElevatedButton(
+                onPressed: _isApplying
+                    ? null
+                    : () async {
+                        final message = _messageController.text.trim();
+
+                        if ((positions.isNotEmpty &&
+                                selectedPosition == null) ||
+                            message.isEmpty) {
+                          ScaffoldMessenger.of(pageContext).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                _t(
+                                  'Vui lòng điền đầy đủ thông tin',
+                                  'Please fill all fields',
+                                ),
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        setState(() => _isApplying = true);
+
+                        Navigator.of(dialogContext).pop();
+
+                        await Future.delayed(const Duration(milliseconds: 100));
+
+                        try {
+                          final fullMessage =
+                              positions.isNotEmpty && selectedPosition != null
+                              ? '$selectedPosition - $message'
+                              : message;
+
+                          await _repository.applyToRecruitmentPost(
+                            widget.session.accessToken,
+                            postId: post.id,
+                            message: fullMessage,
+                          );
+
+                          if (!mounted) return;
+
+                          ScaffoldMessenger.of(pageContext).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                _t(
+                                  'Đã gửi yêu cầu tham gia nhóm',
+                                  'Application sent',
+                                ),
+                              ),
+                              backgroundColor: const Color(0xFF16A34A),
+                              duration: const Duration(seconds: 3),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+
+                          _loadAll();
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(pageContext).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                _t(
+                                  'Không thể gửi yêu cầu: $e',
+                                  'Failed to apply: $e',
+                                ),
+                              ),
+                              backgroundColor: const Color(0xFFEF4444),
+                              duration: const Duration(seconds: 3),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        } finally {
+                          if (mounted) {
+                            setState(() {
+                              _applyingPost = null;
+                              _isApplying = false;
+                            });
+                          }
+                        }
+                      },
+                child: _isApplying
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : Text(_t('Gửi', 'Submit')),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() => _applyingPost = null);
-              Navigator.of(context).pop();
-            },
-            child: Text(_t('Huỷ', 'Cancel')),
-          ),
-          ElevatedButton(
-            onPressed: _isApplying
-                ? null
-                : () async {
-                    final position = _selectedPosition;
-                    final message = _messageController.text.trim();
-
-                    if ((positions.isNotEmpty && position == null) ||
-                        message.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            _t(
-                              'Vui lòng điền đầy đủ thông tin',
-                              'Please fill all fields',
-                            ),
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-
-                    setState(() => _isApplying = true);
-
-                    Navigator.of(context).pop();
-
-                    // Gửi request apply
-                    try {
-                      final fullMessage =
-                          positions.isNotEmpty && position != null
-                          ? '$position - $message'
-                          : message;
-
-                      await _repository.applyToRecruitmentPost(
-                        widget.session.accessToken,
-                        postId: post.id,
-                        message: fullMessage,
-                      );
-
-                      if (!mounted) return;
-
-                      // Reload to update status
-                      await _loadAll();
-
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            _t(
-                              'Đã gửi yêu cầu tham gia nhóm',
-                              'Application sent',
-                            ),
-                          ),
-                          backgroundColor: const Color(0xFF16A34A),
-                        ),
-                      );
-                    } catch (e) {
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            _t(
-                              'Không thể gửi yêu cầu: $e',
-                              'Failed to apply: $e',
-                            ),
-                          ),
-                          backgroundColor: const Color(0xFFEF4444),
-                        ),
-                      );
-                    } finally {
-                      if (mounted) {
-                        setState(() {
-                          _applyingPost = null;
-                          _isApplying = false;
-                        });
-                      }
-                    }
-                  },
-            child: _isApplying
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : Text(_t('Gửi', 'Submit')),
-          ),
-        ],
-      ),
+        );
+      },
     );
 
     setState(() => _applyingPost = null);
   }
 
   Future<void> _openDetail(ForumPost post) async {
-    await Navigator.of(context).push(
+    final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ForumPostDetailPage(
           session: widget.session,
           language: widget.language,
           post: post,
           repository: _repository,
+          canApply: !(_membership?.hasGroup ?? false),
         ),
       ),
     );
+
+    if (result != null && mounted) {
+      if (result == 'success') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _t('Đã gửi yêu cầu tham gia nhóm', 'Application sent'),
+            ),
+            backgroundColor: const Color(0xFF16A34A),
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        // RẤT QUAN TRỌNG: reload lại list
+        _loadAll();
+      } else if (result is String && result.startsWith('error:')) {
+        final error = result.substring(6);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _t('Không thể gửi yêu cầu: $error', 'Failed to apply: $error'),
+            ),
+            backgroundColor: const Color(0xFFEF4444),
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _inviteProfilePost(ForumPost post) async {
+    final token = widget.session.accessToken;
+
+    try {
+      await _repository.inviteToProfilePost(token, postId: post.id);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_t('Đã gửi lời mời tham gia nhóm', 'Invitation sent')),
+          backgroundColor: const Color(0xFF16A34A),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      _loadAll(); // reload để cập nhật hasApplied / status
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _t('Không thể gửi lời mời: $e', 'Failed to send invite: $e'),
+          ),
+          backgroundColor: const Color(0xFFEF4444),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Widget _buildTabButton(_ForumTab tab, String label) {
@@ -400,11 +553,25 @@ class _ForumPageState extends State<ForumPage> {
 
   Widget _buildPostCard(ForumPost post) {
     final bool isGroup = post.type == 'group_hiring';
+    final bool isPersonal = !isGroup;
+
     final closed = _isClosed(post);
     final statusLabel = closed ? _t('closed', 'closed') : _t('open', 'open');
     final statusColor = closed
         ? const Color(0xFF9CA3AF)
         : const Color(0xFF16A34A);
+
+    // user đã có group thì không được apply nữa
+    final bool canApply =
+        isGroup && !post.hasApplied && !(_membership?.hasGroup ?? false);
+
+    // chỉ leader trong group mới được mời (giống FE: userRole === 'leader')
+    final bool isLeader = _membership?.status == 'leader';
+    final bool canInvite =
+        isPersonal &&
+        isLeader &&
+        (_membership?.hasGroup ?? false) &&
+        !post.hasApplied;
 
     final List<String> positions = (post.positionNeeded ?? '')
         .split(',')
@@ -418,6 +585,248 @@ class _ForumPageState extends State<ForumPage> {
     final String avatarInitial = authorName.trim().isNotEmpty
         ? authorName.trim().characters.first.toUpperCase()
         : 'L';
+
+    final String? avatarUrl = post.authorAvatarUrl;
+    final String timeAgo = _timeAgoFrom(post.createdAt);
+    final String majorName =
+        post.majorName ?? post.majorName ?? post.mentorName ?? '';
+
+    // ====== CARD PROFILE (PERSONAL POST) ======
+    if (isPersonal) {
+      final String? primaryPosition = positions.isNotEmpty
+          ? positions.first
+          : null;
+      final List<String> skills = post.skills.isNotEmpty
+          ? post.skills
+          : positions; // fallback nếu backend để skills trong position
+
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // avatar + name + time
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: const Color(0xFFE5E7EB),
+                  backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
+                      ? NetworkImage(avatarUrl)
+                      : null,
+                  child: (avatarUrl != null && avatarUrl.isNotEmpty)
+                      ? null
+                      : Text(
+                          avatarInitial,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      authorName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                    if (timeAgo.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        timeAgo,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // description
+            Text(
+              post.description,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF374151),
+                height: 1.4,
+              ),
+            ),
+
+            // position chip (Frontend)
+            if (primaryPosition != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5E9FF),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  primaryPosition,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF7C3AED),
+                  ),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 16),
+
+            const SizedBox(height: 8),
+
+            // Skills + Major
+            // Skills + Major (major nằm dưới skills)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Skills
+                Text(
+                  _t('Kỹ năng:', 'Skills:'),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: skills
+                      .map(
+                        (s) => Chip(
+                          label: Text(s, style: const TextStyle(fontSize: 11)),
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: const Color(0xFFE5EDFF),
+                        ),
+                      )
+                      .toList(),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Major
+                Text(
+                  _t('Ngành:', 'Major:'),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  majorName,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+            const SizedBox(height: 8),
+
+            // Status / Invite button giống FE
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (post.hasApplied && post.myApplicationStatus != null) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: post.myApplicationStatus == 'accepted'
+                          ? const Color(0xFF10B981).withOpacity(0.1)
+                          : post.myApplicationStatus == 'rejected'
+                          ? const Color(0xFFEF4444).withOpacity(0.1)
+                          : const Color(0xFFF59E0B).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      post.myApplicationStatus == 'accepted'
+                          ? _t('Đã chấp nhận', 'Accepted')
+                          : post.myApplicationStatus == 'rejected'
+                          ? _t('Đã từ chối', 'Rejected')
+                          : _t('Đang chờ', 'Pending'),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: post.myApplicationStatus == 'accepted'
+                            ? const Color(0xFF10B981)
+                            : post.myApplicationStatus == 'rejected'
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFFF59E0B),
+                      ),
+                    ),
+                  ),
+                ] else if (canInvite) ...[
+                  ElevatedButton(
+                    onPressed: () => _inviteProfilePost(post),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF7A00),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      minimumSize: Size.zero,
+                      elevation: 0,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.person_add_alt_1_outlined, size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          _t('Invite to Group', 'Invite to Group'),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -474,29 +883,14 @@ class _ForumPageState extends State<ForumPage> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.remove_red_eye_outlined, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${post.applicationsCount} ${_t('Applications', 'Applications')}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF6B7280),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  if (post.expiresAt != null)
+                  if (isGroup) ...[
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.calendar_month, size: 14),
+                        const Icon(Icons.remove_red_eye_outlined, size: 14),
                         const SizedBox(width: 4),
                         Text(
-                          '${_t('Due', 'Due')}: ${_formatDateShort(post.expiresAt)}',
+                          '${post.applicationsCount} ${_t('Applications', 'Applications')}',
                           style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFF6B7280),
@@ -504,6 +898,23 @@ class _ForumPageState extends State<ForumPage> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 4),
+                    if (post.expiresAt != null)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.calendar_month, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${_t('Due', 'Due')}: ${_formatDateShort(post.expiresAt)}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
                 ],
               ),
             ],
@@ -685,6 +1096,7 @@ class _ForumPageState extends State<ForumPage> {
                 ),
               const Spacer(),
               // Hiển thị trạng thái application nếu đã apply
+              // Status chip – giữ nguyên cho cả group & personal nếu đã gửi (apply/invite)
               if (post.hasApplied && post.myApplicationStatus != null) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -718,8 +1130,9 @@ class _ForumPageState extends State<ForumPage> {
                 ),
                 const SizedBox(width: 8),
               ],
-              // Nút Apply (chỉ hiển nếu chưa apply và là group hiring)
-              if (isGroup && !post.hasApplied) ...[
+
+              // APPLY button – chỉ group, chưa apply, chưa có group
+              if (canApply) ...[
                 ElevatedButton(
                   onPressed: () => _showApplyModal(post),
                   style: ElevatedButton.styleFrom(
@@ -742,23 +1155,57 @@ class _ForumPageState extends State<ForumPage> {
                 ),
                 const SizedBox(width: 8),
               ],
-              TextButton(
-                onPressed: () => _openDetail(post),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+
+              // INVITE button – chỉ personal, leader mới thấy
+              if (canInvite) ...[
+                ElevatedButton(
+                  onPressed: () => _inviteProfilePost(post),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF7A00),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    minimumSize: Size.zero,
+                    elevation: 0,
                   ),
-                  minimumSize: Size.zero,
-                ),
-                child: Text(
-                  _t('View Details', 'View Details'),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.person_add_alt_1_outlined, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        _t('Invite to Group', 'Invite to Group'),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
+              ],
+
+              // View Details chỉ còn cho group-post
+              if (isGroup)
+                TextButton(
+                  onPressed: () => _openDetail(post),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    minimumSize: Size.zero,
+                  ),
+                  child: Text(
+                    _t('View Details', 'View Details'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
             ],
           ),
         ],
@@ -880,37 +1327,59 @@ class _ForumPageState extends State<ForumPage> {
           // nút Create + stats
           Row(
             children: [
-              ElevatedButton.icon(
-                onPressed: () {
-                  if (_tab == _ForumTab.groups) {
-                    _openCreateRecruitmentPost();
-                  } else {
-                    _openCreatePersonalPost();
-                  }
-                },
-                icon: const Icon(Icons.add),
-                label: Text(
-                  _tab == _ForumTab.groups
-                      ? _t('Create group post', 'Create group post')
-                      : _t('Create personal post', 'Create personal post'),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF7A1A),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 10,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  elevation: 0,
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+              // Logic hiển thị nút:
+              // - Leader: chỉ hiện nút tạo bài tuyển (group post)
+              // - Member: hiện cả 2 nút
+              // - Chưa có group: chỉ hiện nút tạo bài cá nhân
+              if (_shouldShowGroupPostButton())
+                ElevatedButton.icon(
+                  onPressed: _openCreateRecruitmentPost,
+                  icon: const Icon(Icons.add),
+                  label: Text(_t('Create group post', 'Create group post')),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF7A1A),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    elevation: 0,
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
+              if (_shouldShowGroupPostButton() &&
+                  _shouldShowPersonalPostButton())
+                const SizedBox(width: 8),
+              if (_shouldShowPersonalPostButton())
+                ElevatedButton.icon(
+                  onPressed: _openCreatePersonalPost,
+                  icon: const Icon(Icons.add),
+                  label: Text(
+                    _t('Create personal post', 'Create personal post'),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF7A1A),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    elevation: 0,
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               const Spacer(),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -1030,215 +1499,6 @@ class _ForumPageState extends State<ForumPage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class ForumPostDetailPage extends StatefulWidget {
-  const ForumPostDetailPage({
-    super.key,
-    required this.session,
-    required this.language,
-    required this.post,
-    required this.repository,
-  });
-
-  final AuthSession session;
-  final AppLanguage language;
-  final ForumPost post;
-  final ForumRepository repository;
-
-  @override
-  State<ForumPostDetailPage> createState() => _ForumPostDetailPageState();
-}
-
-class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
-  bool _applying = false;
-
-  String _t(String vi, String en) =>
-      widget.language == AppLanguage.vi ? vi : en;
-
-  Future<void> _apply() async {
-    if (widget.post.type != 'group_hiring') return;
-
-    final controller = TextEditingController();
-    final message = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(_t('Ứng tuyển vào nhóm', 'Apply to group')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              _t(
-                'Viết lời nhắn ngắn cho leader.',
-                'Write a short message to the leader.',
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: controller,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText: _t(
-                  'Ví dụ: Em muốn apply vị trí FE...',
-                  'Example: I would like to join as FE...',
-                ),
-                border: const OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop<String>(null),
-            child: Text(_t('Huỷ', 'Cancel')),
-          ),
-          ElevatedButton(
-            onPressed: () =>
-                Navigator.of(context).pop<String>(controller.text.trim()),
-            child: Text(_t('Gửi', 'Send')),
-          ),
-        ],
-      ),
-    );
-
-    if (message == null || message.isEmpty) return;
-
-    setState(() => _applying = true);
-    try {
-      await widget.repository.applyToRecruitmentPost(
-        widget.session.accessToken,
-        postId: widget.post.id,
-        message: message,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_t('Đã gửi yêu cầu tham gia nhóm', 'Application sent')),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_t('Không thể gửi yêu cầu: $e', 'Failed to apply: $e')),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _applying = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final post = widget.post;
-
-    final memberText = (post.currentMembers != null && post.maxMembers != null)
-        ? (widget.language == AppLanguage.vi
-              ? '${post.currentMembers}/${post.maxMembers} thành viên'
-              : '${post.currentMembers}/${post.maxMembers} members')
-        : null;
-
-    return Scaffold(
-      appBar: AppBar(title: Text(_t('Post details', 'Post details'))),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              post.title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            if (post.authorName != null && post.authorName!.isNotEmpty)
-              Text(
-                post.authorName!,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
-              ),
-            const SizedBox(height: 12),
-            Text(
-              post.description,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF374151),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (post.positionNeeded != null && post.positionNeeded!.isNotEmpty)
-              Text(
-                _t(
-                  'Vị trí cần tuyển: ${post.positionNeeded}',
-                  'Position needed: ${post.positionNeeded}',
-                ),
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            const SizedBox(height: 12),
-            if (post.skills.isNotEmpty) ...[
-              Text(
-                _t('Skills:', 'Skills:'),
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: -4,
-                children: post.skills
-                    .map(
-                      (s) => Chip(
-                        label: Text(s, style: const TextStyle(fontSize: 11)),
-                        visualDensity: VisualDensity.compact,
-                        backgroundColor: const Color(0xFFE5EDFF),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ],
-            const SizedBox(height: 16),
-            if (memberText != null)
-              Row(
-                children: [
-                  const Icon(
-                    Icons.people_alt_outlined,
-                    size: 16,
-                    color: Color(0xFF6B7280),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    memberText,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF6B7280),
-                    ),
-                  ),
-                ],
-              ),
-            const SizedBox(height: 32),
-            if (post.type == 'group_hiring')
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _applying ? null : _apply,
-                  child: _applying
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(_t('Apply to this group', 'Apply to this group')),
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }

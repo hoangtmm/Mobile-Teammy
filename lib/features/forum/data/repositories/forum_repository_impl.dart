@@ -76,4 +76,28 @@ class ForumRepositoryImpl implements ForumRepository {
       message: message,
     );
   }
+
+  @override
+  Future<void> inviteToProfilePost(
+    String accessToken, {
+    required String postId,
+  }) async {
+    await remoteDataSource.inviteToProfilePost(accessToken, postId: postId);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchSkills(
+    String accessToken, {
+    required String major,
+  }) async {
+    return await remoteDataSource.fetchSkills(accessToken, major: major);
+  }
+
+  @override
+  Future<Map<String, dynamic>?> fetchGroupDetails(
+    String accessToken,
+    String groupId,
+  ) async {
+    return await remoteDataSource.fetchGroupDetails(accessToken, groupId);
+  }
 }

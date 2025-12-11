@@ -36,4 +36,20 @@ abstract class ForumRepository {
     required String postId,
     required String message,
   });
+  Future<void> inviteToProfilePost(
+    String accessToken, {
+    required String postId,
+  });
+
+  /// Fetch skills by major
+  Future<List<Map<String, dynamic>>> fetchSkills(
+    String accessToken, {
+    required String major,
+  });
+
+  /// Fetch group details by groupId
+  Future<Map<String, dynamic>?> fetchGroupDetails(
+    String accessToken,
+    String groupId,
+  );
 }

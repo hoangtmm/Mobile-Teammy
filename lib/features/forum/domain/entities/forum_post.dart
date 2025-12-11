@@ -6,6 +6,7 @@ class ForumPost {
     required this.description,
     this.groupId,
     this.groupName,
+    this.groupDescription,
     this.authorId,
     this.authorName,
     this.authorAvatarUrl,
@@ -18,6 +19,14 @@ class ForumPost {
     this.applicationsCount = 0,
     this.currentMembers,
     this.maxMembers,
+    this.semesterSeason,
+    this.semesterYear,
+    this.majorName,
+    this.topicName,
+    this.mentorName,
+    this.mentorEmail,
+    this.mentorAvatarUrl,
+    this.members = const [],
   });
 
   /// ID bài post
@@ -31,6 +40,7 @@ class ForumPost {
 
   final String? groupId;
   final String? groupName;
+  final String? groupDescription;
 
   final String? authorId;
   final String? authorName;
@@ -54,4 +64,40 @@ class ForumPost {
 
   final int? currentMembers;
   final int? maxMembers;
+
+  /// Semester info
+  final String? semesterSeason;
+  final int? semesterYear;
+
+  /// Major info
+  final String? majorName;
+
+  /// Topic info
+  final String? topicName;
+
+  /// Mentor info
+  final String? mentorName;
+  final String? mentorEmail;
+  final String? mentorAvatarUrl;
+
+  /// Group members
+  final List<GroupMember> members;
+}
+
+class GroupMember {
+  const GroupMember({
+    required this.userId,
+    required this.displayName,
+    this.email,
+    this.avatarUrl,
+    this.role,
+    this.assignedRole,
+  });
+
+  final String userId;
+  final String displayName;
+  final String? email;
+  final String? avatarUrl;
+  final String? role;
+  final String? assignedRole;
 }

@@ -5,6 +5,7 @@ class ForumMembershipModel extends ForumMembership {
     required super.hasGroup,
     super.groupId,
     super.status,
+    super.groupName,
   });
 
   factory ForumMembershipModel.fromJson(Map<String, dynamic> json) {
@@ -12,6 +13,7 @@ class ForumMembershipModel extends ForumMembership {
       hasGroup: json['hasGroup'] as bool? ?? false,
       groupId: json['groupId']?.toString(),
       status: json['status'] as String?,
+      groupName: json['groupName'] as String?,
     );
   }
 }

@@ -8,6 +8,7 @@ class ForumPostModel extends ForumPost {
     required super.description,
     super.groupId,
     super.groupName,
+    super.groupDescription,
     super.authorId,
     super.authorName,
     super.authorAvatarUrl,
@@ -20,6 +21,14 @@ class ForumPostModel extends ForumPost {
     super.applicationsCount = 0,
     super.currentMembers,
     super.maxMembers,
+    super.semesterSeason,
+    super.semesterYear,
+    super.majorName,
+    super.topicName,
+    super.mentorName,
+    super.mentorEmail,
+    super.mentorAvatarUrl,
+    super.members = const [],
   });
 
   /// Parse từ JSON BE trả về
@@ -88,16 +97,90 @@ class ForumPostModel extends ForumPost {
 
     String? leaderName;
     String? leaderAvatarUrl;
+    String? groupDescription;
+    List<GroupMember> members = [];
+
     if (groupData is Map<String, dynamic>) {
       groupName = groupData['name'] as String?;
+      groupDescription = groupData['description'] as String?;
+
       // Lấy tên và avatar leader từ group.leader
       final leaderData = groupData['leader'];
       if (leaderData is Map<String, dynamic>) {
         leaderName = leaderData['displayName'] as String?;
         leaderAvatarUrl = leaderData['avatarUrl'] as String?;
       }
+
+      // Parse members
+      final membersData = groupData['members'];
+      if (membersData is List) {
+        members = membersData
+            .whereType<Map<String, dynamic>>()
+            .map(
+              (m) => GroupMember(
+                userId: m['userId']?.toString() ?? '',
+                displayName: m['displayName']?.toString() ?? '',
+                email: m['email']?.toString(),
+                avatarUrl: m['avatarUrl']?.toString(),
+                role: m['role']?.toString(),
+                assignedRole: m['assignedRole']?.toString(),
+              ),
+            )
+            .toList();
+      }
     } else {
       groupName = json['groupName'] as String?;
+    }
+
+    // For individual posts, get user info from 'user' field
+    final userData = json['user'];
+    if (userData is Map<String, dynamic>) {
+      leaderName = userData['displayName'] as String?;
+      leaderAvatarUrl = userData['avatarUrl'] as String?;
+    }
+
+    // Parse semester
+    String? semesterSeason;
+    int? semesterYear;
+    final semesterData = json['semester'];
+    if (semesterData is Map<String, dynamic>) {
+      semesterSeason = semesterData['season']?.toString();
+      semesterYear = parseInt(semesterData['year']);
+    }
+
+    // Parse major
+    String? majorName;
+    final majorData = json['major'];
+    if (majorData is Map<String, dynamic>) {
+      majorName = majorData['majorName']?.toString();
+    }
+
+    // Parse topic
+    String? topicName = json['topicName']?.toString();
+    final topicData = json['topic'];
+    if (topicData is Map<String, dynamic>) {
+      topicName =
+          topicData['topicName']?.toString() ?? topicData['name']?.toString();
+    }
+
+    // Parse mentor
+    String? mentorName;
+    String? mentorEmail;
+    String? mentorAvatarUrl;
+    final mentorData = json['mentor'];
+    if (mentorData is Map<String, dynamic>) {
+      mentorName = mentorData['displayName']?.toString();
+      mentorEmail = mentorData['email']?.toString();
+      mentorAvatarUrl = mentorData['avatarUrl']?.toString();
+    }
+    // Also check group.mentor
+    if (mentorName == null && groupData is Map<String, dynamic>) {
+      final groupMentorData = groupData['mentor'];
+      if (groupMentorData is Map<String, dynamic>) {
+        mentorName = groupMentorData['displayName']?.toString();
+        mentorEmail = groupMentorData['email']?.toString();
+        mentorAvatarUrl = groupMentorData['avatarUrl']?.toString();
+      }
     }
 
     return ForumPostModel(
@@ -107,6 +190,7 @@ class ForumPostModel extends ForumPost {
       description: (json['description'] ?? '') as String,
       groupId: json['groupId']?.toString(),
       groupName: groupName,
+      groupDescription: groupDescription,
       authorId: json['ownerId']?.toString() ?? json['userId']?.toString(),
       authorName:
           leaderName ??
@@ -129,6 +213,14 @@ class ForumPostModel extends ForumPost {
           : int.tryParse('${json['applicationsCount'] ?? 0}') ?? 0,
       currentMembers: currentMembers,
       maxMembers: maxMembers,
+      semesterSeason: semesterSeason,
+      semesterYear: semesterYear,
+      majorName: majorName,
+      topicName: topicName,
+      mentorName: mentorName,
+      mentorEmail: mentorEmail,
+      mentorAvatarUrl: mentorAvatarUrl,
+      members: members,
     );
   }
 

@@ -62,6 +62,24 @@ class ForumRemoteDataSource {
     return ForumMembershipModel.fromJson(decoded);
   }
 
+  Future<Map<String, dynamic>?> fetchGroupDetails(
+    String accessToken,
+    String groupId,
+  ) async {
+    final uri = _buildUri('/api/groups/$groupId');
+    final response = await _httpClient.get(uri, headers: _headers(accessToken));
+
+    if (response.statusCode != 200) {
+      return null;
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (decoded is! Map<String, dynamic>) return null;
+
+    return decoded;
+  }
+
   Future<List<ForumPostModel>> fetchRecruitmentPosts(String accessToken) async {
     final uri = _buildUri(_recruitmentPostsPath);
     final response = await _httpClient.get(uri, headers: _headers(accessToken));
@@ -187,5 +205,41 @@ class ForumRemoteDataSource {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       _throwApiError(response);
     }
+  }
+
+  // Personal profile post: invite student vào group
+  Future<void> inviteToProfilePost(
+    String accessToken, {
+    required String postId,
+  }) async {
+    final uri = _buildUri('$_personalPostsPath/$postId/invites');
+
+    final response = await _httpClient.post(
+      uri,
+      headers: _headers(accessToken), // không cần body
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwApiError(response);
+    }
+  }
+
+  // Fetch skills by major
+  Future<List<Map<String, dynamic>>> fetchSkills(
+    String accessToken, {
+    required String major,
+  }) async {
+    final uri = _buildUri('/api/skills', {'major': major});
+    final response = await _httpClient.get(uri, headers: _headers(accessToken));
+
+    if (response.statusCode != 200) {
+      _throwApiError(response);
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+
+    if (decoded is! List) return const [];
+
+    return decoded.whereType<Map<String, dynamic>>().toList();
   }
 }
