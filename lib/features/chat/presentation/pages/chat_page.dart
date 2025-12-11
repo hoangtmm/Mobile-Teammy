@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/api_constants.dart';
@@ -5,14 +7,21 @@ import '../../../../core/localization/app_language.dart';
 import '../../../auth/domain/entities/auth_session.dart';
 import '../../data/datasources/chat_remote_data_source.dart';
 import '../../data/repositories/chat_repository.dart';
+import '../../data/services/chat_hub_service.dart';
 import '../../domain/entities/chat_conversation.dart';
 import 'chat_detail_page.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({super.key, required this.session, required this.language});
+  const ChatPage({
+    super.key,
+    required this.session,
+    required this.language,
+    this.onClose,
+  });
 
   final AuthSession session;
   final AppLanguage language;
+  final VoidCallback? onClose;
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -52,12 +61,33 @@ class _ChatPageState extends State<ChatPage> {
         accessToken: widget.session.accessToken,
       );
       if (!mounted) return;
+
+      print('[ChatPage] Loaded ${items.length} conversations');
+      items.forEach((item) {
+        print('[ChatPage] - ${item.displayName} (type: ${item.type}, isGroup: ${item.isGroup}, groupId: ${item.groupId})');
+      });
+      
+      // Remove duplicates by sessionId/groupId
+      final seen = <String>{};
+      final uniqueItems = <ChatConversation>[];
+      for (final item in items) {
+        final id = item.isGroup ? (item.groupId ?? '') : item.sessionId;
+        print('[ChatPage] Processing ${item.displayName}: id=$id, seen=$seen');
+        if (!seen.contains(id)) {
+          seen.add(id);
+          uniqueItems.add(item);
+        }
+      }
+      
+      print('[ChatPage] Final conversations after dedup: ${uniqueItems.length}');
+      
       setState(() {
-        _conversations = items;
+        _conversations = uniqueItems;
         _loading = false;
       });
     } catch (error) {
       if (!mounted) return;
+      print('[ChatPage] Error loading conversations: $error');
       setState(() {
         _errorMessage = error.toString();
         _loading = false;
@@ -133,33 +163,30 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
             const Spacer(),
-            _buildHeaderIcon(Icons.person_outline),
-            _buildHeaderIcon(Icons.help_outline),
-            _buildHeaderIcon(Icons.settings_outlined),
-            _buildHeaderIcon(Icons.close),
+            if (widget.onClose != null)
+              GestureDetector(
+                onTap: widget.onClose,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x11000000),
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.close, size: 18, color: Color(0xFF1B2B57)),
+                  ),
+                ),
+              ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderIcon(IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 12),
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x11000000),
-              blurRadius: 6,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Icon(icon, size: 18, color: const Color(0xFF1B2B57)),
       ),
     );
   }

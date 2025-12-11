@@ -32,4 +32,28 @@ class ChatConversationModel extends ChatConversation {
       updatedAt: updatedAt,
     );
   }
+
+  factory ChatConversationModel.fromGroupJson(Map<String, dynamic> json) {
+    DateTime? updatedAt;
+    final updatedAtRaw = json['updatedAt'];
+    if (updatedAtRaw is String && updatedAtRaw.isNotEmpty) {
+      updatedAt = DateTime.tryParse(updatedAtRaw);
+    }
+
+    // Generate a unique sessionId for group (use groupId as sessionId)
+    final groupId = json['id'] as String? ?? '';
+    
+    return ChatConversationModel(
+      sessionId: groupId,  // Use groupId as sessionId for groups
+      type: 'group',
+      groupId: groupId,
+      groupName: json['name'] as String?,
+      otherUserId: null,
+      otherDisplayName: null,
+      otherAvatarUrl: null,
+      lastMessage: json['description'] as String?,
+      updatedAt: updatedAt,
+    );
+  }
 }
+

@@ -17,6 +17,7 @@ class ChatRemoteDataSource {
   Future<List<ChatConversationModel>> fetchConversations(
     String accessToken,
   ) async {
+    // Fetch DM conversations
     final uri = Uri.parse('$baseUrl${ApiPath.chatConversations}');
     final response = await _httpClient.get(
       uri,
@@ -36,11 +37,73 @@ class ChatRemoteDataSource {
     final decoded =
         jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
 
-    return decoded
+    print('[ChatRemoteDataSource] API Response: $decoded');
+
+    final conversations = decoded
         .whereType<Map<String, dynamic>>()
-        .map(ChatConversationModel.fromJson)
+        .map((json) {
+          print('[ChatRemoteDataSource] Parsing conversation: $json');
+          return ChatConversationModel.fromJson(json);
+        })
         .toList();
+
+    print('[ChatRemoteDataSource] Total DM conversations: ${conversations.length}');
+    conversations.forEach((c) {
+      print('[ChatRemoteDataSource] - ${c.displayName} (type: ${c.type}, isGroup: ${c.isGroup})');
+    });
+
+    // Fetch group chats
+    final groupConversations = await _fetchGroupConversations(accessToken);
+    
+    final allConversations = [...conversations, ...groupConversations];
+    print('[ChatRemoteDataSource] Total conversations (DM + Groups): ${allConversations.length}');
+
+    return allConversations;
   }
+
+  Future<List<ChatConversationModel>> _fetchGroupConversations(
+    String accessToken,
+  ) async {
+    try {
+      final uri = Uri.parse('$baseUrl${ApiPath.groupsMyGroups}');
+      final response = await _httpClient.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+          'accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode != 200) {
+        print('[ChatRemoteDataSource] Failed to fetch groups: ${response.statusCode}');
+        return [];
+      }
+
+      final decoded =
+          jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+
+      print('[ChatRemoteDataSource] Groups API Response: $decoded');
+
+      final groupConversations = decoded
+          .whereType<Map<String, dynamic>>()
+          .map((json) {
+            print('[ChatRemoteDataSource] Parsing group: $json');
+            return ChatConversationModel.fromGroupJson(json);
+          })
+          .toList();
+
+      print('[ChatRemoteDataSource] Total groups: ${groupConversations.length}');
+      groupConversations.forEach((c) {
+        print('[ChatRemoteDataSource] - ${c.displayName} (type: ${c.type}, groupId: ${c.groupId})');
+      });
+
+      return groupConversations;
+    } catch (e) {
+      print('[ChatRemoteDataSource] Error fetching groups: $e');
+      return [];
+    }
+  }
+
 
   Future<List<ChatMessageModel>> fetchSessionMessages({
     required String accessToken,
@@ -146,5 +209,32 @@ class ChatRemoteDataSource {
         body: response.body,
       );
     }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchGroupMembers({
+    required String accessToken,
+    required String groupId,
+  }) async {
+    final uri = Uri.parse('$baseUrl${ApiPath.groupMembers(groupId)}');
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw AuthApiException(
+        statusCode: response.statusCode,
+        body: response.body,
+      );
+    }
+
+    final decoded =
+        jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .toList();
   }
 }

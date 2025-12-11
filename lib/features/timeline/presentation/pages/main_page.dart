@@ -167,6 +167,7 @@ class _MainPageState extends State<MainPage> {
         return ChatPage(
           session: widget.session,
           language: _language,
+          onClose: () => setState(() => _selectedIndex = 0),
         );
       case 1:
         return TasksPage(language: _language);
@@ -219,7 +220,9 @@ class _MainPageState extends State<MainPage> {
               Expanded(child: _buildTabBody()),
             ],
           ),
-          bottomNavigationBar: SafeArea(
+          bottomNavigationBar: _selectedIndex == 3
+              ? null
+              : SafeArea(
             top: false,
             child: Container(
               decoration: const BoxDecoration(
@@ -611,7 +614,7 @@ class _UserSheetState extends State<_UserSheet> {
                         ),
                         onPressed: () => Navigator.of(context).pop(true),
                         child: Text(
-                          _translate('Co', 'Yes'),
+                          _translate('Có', 'Yes'),
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -629,7 +632,7 @@ class _UserSheetState extends State<_UserSheet> {
                         ),
                         onPressed: () => Navigator.of(context).pop(false),
                         child: Text(
-                          _translate('Khong', 'No'),
+                          _translate('Không', 'No'),
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF1C293F),

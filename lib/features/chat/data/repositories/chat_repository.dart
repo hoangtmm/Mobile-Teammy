@@ -58,4 +58,14 @@ class ChatRepository {
       type: type,
     );
   }
+
+  Future<List<Map<String, dynamic>>> fetchGroupMembers({
+    required String accessToken,
+    required String groupId,
+  }) {
+    return remoteDataSource.fetchGroupMembers(
+      accessToken: accessToken,
+      groupId: groupId,
+    );
+  }
 }
