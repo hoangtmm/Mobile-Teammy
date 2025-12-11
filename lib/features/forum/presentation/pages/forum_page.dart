@@ -199,6 +199,29 @@ class _ForumPageState extends State<ForumPage> {
         ),
       );
       _loadAll();
+    } else if (result != null && result.startsWith('error:')) {
+      final fullError = result.substring(6);
+      // Parse để lấy message từ format: AuthApiException(409): "Group is full"
+      String errorMsg = fullError;
+      final pattern = RegExp(r'"([^"]+)"');
+      final match = pattern.firstMatch(fullError);
+      if (match != null) {
+        errorMsg = match.group(1) ?? fullError;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _t(
+              'Không thể tạo bài tuyển: $errorMsg',
+              'Failed to create post: $errorMsg',
+            ),
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 

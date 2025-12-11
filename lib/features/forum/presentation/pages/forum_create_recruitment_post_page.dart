@@ -441,13 +441,8 @@ class _CreateRecruitmentPostFormState
       Navigator.of(context).pop('success');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _t('Không thể tạo bài tuyển: $e', 'Failed to create post: $e'),
-          ),
-        ),
-      );
+      // Đóng modal trước
+      Navigator.of(context).pop('error:$e');
     } finally {
       if (mounted) {
         setState(() => _submitting = false);
