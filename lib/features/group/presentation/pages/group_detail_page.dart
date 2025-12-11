@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/localization/app_language.dart';
 import '../../../auth/domain/entities/auth_session.dart';
+import '../../../auth/presentation/pages/user_profile_page.dart';
 import '../../data/datasources/group_remote_data_source.dart';
 import '../../data/datasources/topic_remote_data_source.dart';
 import '../../domain/entities/group.dart';
@@ -140,17 +141,19 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
             const SizedBox(height: 20),
             _GroupInfoGrid(group: group, progress: _controller.groupProgress, language: widget.language),
             const SizedBox(height: 20),
-            _MentorSection(group: group, language: widget.language),
+            _MentorSection(group: group, language: widget.language, session: widget.session),
             const SizedBox(height: 20),
             _TopicSection(group: group, isLeader: isLeader, language: widget.language, session: widget.session, onSelectTopic: () => _loadAndShowTopics(context)),
             const SizedBox(height: 20),
             _TechnologiesSection(group: group, language: widget.language),
             const SizedBox(height: 20),
             _TeamMembersSection(
+              parentContext: context,
               group: group,
               members: _controller.members,
               isLeader: isLeader,
               language: widget.language,
+              session: widget.session,
               onInvite: _showInviteMembersDialog,
             ),
           ],
@@ -418,8 +421,9 @@ class _GroupInfoGrid extends StatelessWidget {
 class _MentorSection extends StatelessWidget {
   final Group group;
   final AppLanguage language;
+  final AuthSession session;
 
-  const _MentorSection({required this.group, required this.language});
+  const _MentorSection({required this.group, required this.language, required this.session});
 
   String _translate(String vi, String en) => language == AppLanguage.vi ? vi : en;
 
@@ -444,30 +448,47 @@ class _MentorSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          group.mentor != null ? _buildMentorContent() : _buildEmptyContent(),
+          group.mentor != null ? _buildMentorContent(context) : _buildEmptyContent(),
         ],
       ),
     );
   }
 
-  Widget _buildMentorContent() {
+  Widget _buildMentorContent(BuildContext context) {
     final mentor = group.mentor!;
-    return Row(
-      children: [
-        _buildAvatar(mentor.displayName, mentor.avatarUrl),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(mentor.displayName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF212631))),
-              const SizedBox(height: 4),
-              Text(mentor.email, style: const TextStyle(fontSize: 12, color: Color(0xFF747A8A)), maxLines: 1, overflow: TextOverflow.ellipsis),
-            ],
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => UserProfilePage(
+              userId: mentor.userId,
+              session: session,
+              language: language,
+            ),
           ),
+        );
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Row(
+          children: [
+            _buildAvatar(mentor.displayName, mentor.avatarUrl),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(mentor.displayName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF212631))),
+                  const SizedBox(height: 4),
+                  Text(mentor.email, style: const TextStyle(fontSize: 12, color: Color(0xFF747A8A)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+            Icon(FeatherIcons.star, size: 18, color: const Color(0xFF8B5CF6)),
+          ],
         ),
-        Icon(FeatherIcons.star, size: 18, color: const Color(0xFF8B5CF6)),
-      ],
+      ),
     );
   }
 
@@ -631,17 +652,21 @@ class _TechnologiesSection extends StatelessWidget {
 
 // ============ TEAM MEMBERS SECTION ============
 class _TeamMembersSection extends StatelessWidget {
+  final BuildContext parentContext;
   final Group group;
   final List<GroupMember> members;
   final bool isLeader;
   final AppLanguage language;
+  final AuthSession session;
   final VoidCallback onInvite;
 
   const _TeamMembersSection({
+    required this.parentContext,
     required this.group,
     required this.members,
     required this.isLeader,
     required this.language,
+    required this.session,
     required this.onInvite,
   });
 
@@ -672,7 +697,7 @@ class _TeamMembersSection extends StatelessWidget {
           const SizedBox(height: 12),
           Column(
             children: [
-              ...members.map((member) => _buildMemberCard(member)),
+              ...members.map((member) => _buildMemberCard(member, parentContext)),
               if (isLeader) ...[const SizedBox(height: 12), _buildInviteButton()],
             ],
           ),
@@ -704,49 +729,75 @@ class _TeamMembersSection extends StatelessWidget {
     );
   }
 
-  Widget _buildMemberCard(GroupMember member) {
+  Widget _buildMemberCard(GroupMember member, BuildContext context) {
     final displayName = member.displayName;
     final role = member.role;
     final hasRole = role.trim().isNotEmpty;
     final avatarUrl = member.avatarUrl;
+    final isCurrentUserLeader = isLeader;
+    final isMemberLeader = role == 'leader';
+    // Chỉ cho kick khi: là leader, member không phải leader, và group chưa active
+    final canKick = isCurrentUserLeader && !isMemberLeader && group.status != 'active';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE2E4E9)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 1))],
-        ),
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            _buildAvatar(displayName, avatarUrl),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(displayName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF212631))),
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatRole(hasRole ? role : null),
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF747A8A)),
-                  ),
-                ],
-              ),
-            ),
-            if (hasRole)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getRoleColor(role).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
+      child: GestureDetector(
+        onTap: () => _openUserProfile(context, member.userId),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E4E9)),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 1))],
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              _buildAvatar(displayName, avatarUrl),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(displayName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF212631))),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatRole(hasRole ? role : null),
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF747A8A)),
+                    ),
+                  ],
                 ),
-                child: Text(_formatRole(role), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _getRoleColor(role))),
               ),
-          ],
+              if (hasRole)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _getRoleColor(role).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(_formatRole(role), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _getRoleColor(role))),
+                ),
+              if (canKick) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(FeatherIcons.userMinus, size: 18, color: Color(0xFFEF4444)),
+                  onPressed: () => _showKickConfirmation(context, member),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+              if (isCurrentUserLeader && !isMemberLeader) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(FeatherIcons.star, size: 18, color: Color(0xFFF59E0B)),
+                  onPressed: () => _showTransferLeaderConfirmation(context, member),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: _translate('Chuyển quyền leader', 'Transfer leadership'),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -763,6 +814,200 @@ class _TeamMembersSection extends StatelessWidget {
       ),
       child: url == null ? Center(child: Text(name.isEmpty ? '?' : name[0], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600))) : null,
     );
+  }
+
+  void _showKickConfirmation(BuildContext context, GroupMember member) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(_translate('Xác nhận', 'Confirm')),
+        content: Text(
+          _translate(
+            'Bạn có chắc chắn muốn xóa ${member.displayName} khỏi nhóm?',
+            'Are you sure you want to remove ${member.displayName} from the group?',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(_translate('Hủy', 'Cancel')),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _kickMember(context, member);
+            },
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFEF4444)),
+            child: Text(_translate('Xóa', 'Remove')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTransferLeaderConfirmation(BuildContext context, GroupMember member) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(_translate('Chuyển quyền leader', 'Transfer Leadership')),
+        content: Text(
+          _translate(
+            'Bạn có chắc chắn muốn chuyển quyền leader cho ${member.displayName}?\n\nBạn sẽ trở thành thành viên thường sau khi chuyển.',
+            'Are you sure you want to transfer leadership to ${member.displayName}?\n\nYou will become a regular member after the transfer.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(_translate('Hủy', 'Cancel')),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _transferLeader(context, member);
+            },
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFF59E0B)),
+            child: Text(_translate('Chuyển', 'Transfer')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _kickMember(BuildContext context, GroupMember member) async {
+    print('[GROUP] Attempting to kick member: ${member.displayName} (${member.userId})');
+    print('[GROUP] Current group status: ${group.status}');
+    print('[GROUP] Current user role: ${group.role}');
+    print('[GROUP] Is leader: $isLeader');
+    
+    try {
+      final dataSource = GroupRemoteDataSource(baseUrl: kApiBaseUrl);
+      await dataSource.kickMember(
+        accessToken: session.accessToken,
+        groupId: group.id,
+        userId: member.userId,
+      );
+
+      print('[GROUP] Successfully kicked member');
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _translate(
+              'Đã xóa ${member.displayName} khỏi nhóm',
+              '${member.displayName} has been removed from the group',
+            ),
+          ),
+          backgroundColor: const Color(0xFF10B981),
+        ),
+      );
+
+      // Reload page
+      if (parentContext.mounted) {
+        Navigator.of(parentContext).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => GroupDetailPage(
+              groupId: group.id,
+              session: session,
+              language: language,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('[GROUP] ERROR kicking member: $e');
+      print('[GROUP] Error type: ${e.runtimeType}');
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _translate(
+              'Không thể xóa thành viên: $e',
+              'Failed to remove member: $e',
+            ),
+          ),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+    }
+  }
+
+  Future<void> _transferLeader(BuildContext context, GroupMember member) async {
+    print('[GROUP] Attempting to transfer leader to: ${member.displayName} (${member.userId})');
+    
+    try {
+      final dataSource = GroupRemoteDataSource(baseUrl: kApiBaseUrl);
+      await dataSource.transferLeader(
+        accessToken: session.accessToken,
+        groupId: group.id,
+        newLeaderUserId: member.userId,
+      );
+
+      print('[GROUP] Successfully transferred leadership');
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _translate(
+              'Đã chuyển quyền leader cho ${member.displayName}',
+              'Leadership transferred to ${member.displayName}',
+            ),
+          ),
+          backgroundColor: const Color(0xFF10B981),
+        ),
+      );
+
+      // Reload page
+      if (parentContext.mounted) {
+        Navigator.of(parentContext).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => GroupDetailPage(
+              groupId: group.id,
+              session: session,
+              language: language,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('[GROUP] ERROR transferring leader: $e');
+      print('[GROUP] Error type: ${e.runtimeType}');
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _translate(
+              'Không thể chuyển quyền leader: $e',
+              'Failed to transfer leadership: $e',
+            ),
+          ),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+    }
+  }
+
+  void _openUserProfile(BuildContext context, String userId) {
+    try {
+      print('[GROUP DETAIL] Opening user profile for userId: $userId');
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => UserProfilePage(
+            userId: userId,
+            session: session,
+            language: language,
+          ),
+        ),
+      );
+    } catch (e) {
+      print('[GROUP DETAIL] Error opening user profile: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   String _formatRole(String? role) {

@@ -85,6 +85,43 @@ class _GroupPageState extends State<GroupPage> {
   }
 
   Future<void> _handleLeaveGroup(String groupId, String groupName) async {
+    // Kiểm tra xem user có phải là leader không
+    final currentGroup = _controller.groups.firstWhere(
+      (g) => g.id == groupId,
+      orElse: () => throw Exception('Group not found'),
+    );
+    
+    final isLeader = currentGroup.role == 'leader';
+    final hasOtherMembers = currentGroup.currentMembers > 1;
+
+    // Nếu là leader và còn member khác, phải transfer leader trước
+    if (isLeader && hasOtherMembers) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _translate(
+              'Bạn cần chuyển quyền leader cho thành viên khác trước khi rời nhóm',
+              'You need to transfer leadership to another member before leaving the group',
+            ),
+          ),
+          backgroundColor: const Color(0xFFF59E0B),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      
+      // Mở trang group detail để transfer leader
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => GroupDetailPage(
+            groupId: groupId,
+            session: widget.session,
+            language: widget.language,
+          ),
+        ),
+      );
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(

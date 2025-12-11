@@ -438,4 +438,51 @@ class GroupRemoteDataSource {
 
     return [];
   }
+
+  /// Kick member khỏi group
+  Future<void> kickMember({
+    required String accessToken,
+    required String groupId,
+    required String userId,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/groups/$groupId/members/$userId');
+
+    final response = await _httpClient.delete(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception('Failed to kick member: ${response.statusCode}');
+    }
+  }
+
+  /// Chuyển quyền leader cho member khác
+  Future<void> transferLeader({
+    required String accessToken,
+    required String groupId,
+    required String newLeaderUserId,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/groups/$groupId/leader/transfer');
+
+    final response = await _httpClient.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+        'accept': 'application/json',
+      },
+      body: jsonEncode({
+        'newLeaderUserId': newLeaderUserId,
+      }),
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      final errorBody = utf8.decode(response.bodyBytes);
+      throw Exception('Failed to transfer leader: $errorBody');
+    }
+  }
 }

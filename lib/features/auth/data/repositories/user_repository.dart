@@ -11,6 +11,13 @@ class UserRepository {
     return remoteDataSource.getProfile(accessToken);
   }
 
+  Future<UserProfile> fetchProfileByUserId(
+    String accessToken,
+    String userId,
+  ) {
+    return remoteDataSource.getProfileByUserId(accessToken, userId);
+  }
+
   Future<void> updateProfile({
     required String accessToken,
     required UserProfileUpdate update,
