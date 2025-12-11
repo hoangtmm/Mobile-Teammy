@@ -42,7 +42,7 @@ class _MainPageState extends State<MainPage> {
 
   final _tabs = const [
     _BottomTab(icon: Icons.view_kanban_outlined, labelVi: 'Nhom', labelEn: 'Team'),
-    _BottomTab(icon: Icons.check_box_outlined, labelVi: 'Viec cua toi', labelEn: 'My Tasks'),
+    _BottomTab(icon: Icons.check_box_outlined, labelVi: 'Bảng Kanban', labelEn: 'Kanban Board'),
     _BottomTab(icon: Icons.forum_outlined, labelVi: 'Forum', labelEn: 'Forum'),
     _BottomTab(icon: Icons.chat_bubble_outline_rounded, labelVi: 'WorkChat', labelEn: 'WorkChat'),
   ];
@@ -151,7 +151,7 @@ class _MainPageState extends State<MainPage> {
   String _getTabTitle() {
     switch (_selectedIndex) {
       case 1:
-        return _translate('Công việc', 'My Tasks');
+        return _translate('Bảng Kanban', 'Kanban Board');
       case 2:
         return _translate('Forum', 'Forum');
       case 3:

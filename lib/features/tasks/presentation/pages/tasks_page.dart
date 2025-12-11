@@ -596,477 +596,26 @@ class _TasksPageState extends State<TasksPage>
   Future<void> _showTaskActivitySheet(BoardTask task) async {
     _controller.loadTaskComments(task.taskId);
     _controller.loadTaskFiles(task.taskId);
-    final commentController = TextEditingController();
-    final fileDescriptionController = TextEditingController();
-
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (sheetContext) {
-        bool submittingComment = false;
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            Future<void> submitComment() async {
-              final content = commentController.text.trim();
-              if (content.isEmpty || submittingComment) return;
-              FocusScope.of(sheetContext).unfocus();
-              setSheetState(() => submittingComment = true);
-              try {
-                await _controller.addTaskComment(task.taskId, content);
-                commentController.clear();
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      _translate(
-                        'Không gửi được bình luận: $e',
-                        'Failed to post comment: $e',
-                      ),
-                    ),
-                  ),
-                );
-              } finally {
-                if (mounted) {
-                  setSheetState(() => submittingComment = false);
-                }
-              }
-            }
-
-            Future<void> handleFileUpload() async {
-              if (_controller.isUploadingFile(task.taskId)) return;
-              try {
-                final result = await FilePicker.platform.pickFiles(
-                  withData: kIsWeb,
-                );
-                if (result == null || result.files.isEmpty) return;
-                final selected = result.files.first;
-                final bytes = await _resolveFileBytes(selected);
-                final description = fileDescriptionController.text.trim();
-                await _controller.uploadTaskFile(
-                  task.taskId,
-                  UploadTaskFileRequest(
-                    taskId: task.taskId,
-                    description: description.isEmpty ? null : description,
-                    fileName: selected.name,
-                    mimeType: _mimeFromExtension(selected.extension),
-                    bytes: bytes,
-                  ),
-                );
-                fileDescriptionController.clear();
-                if (!mounted) return;
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      _translate(
-                        'Đã tải lên tệp ${selected.name}',
-                        'Uploaded file ${selected.name}',
-                      ),
-                    ),
-                  ),
-                );
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      _translate(
-                        'Không tải lên được tệp: $e',
-                        'Unable to upload file: $e',
-                      ),
-                    ),
-                  ),
-                );
-              }
-            }
-
-            return AnimatedBuilder(
-              animation: _controller,
-              builder: (context, _) {
-                final comments = _controller.commentsForTask(task.taskId);
-                final files = _controller.filesForTask(task.taskId);
-                final commentsLoading = _controller.commentsLoading(
-                  task.taskId,
-                );
-                final filesLoading = _controller.filesLoading(task.taskId);
-                final commentsError = _controller.commentsError(task.taskId);
-                final filesError = _controller.filesError(task.taskId);
-                final isUploadingFile = _controller.isUploadingFile(
-                  task.taskId,
-                );
-                final viewInsets = MediaQuery.of(
-                  sheetContext,
-                ).viewInsets.bottom;
-
-                return SizedBox(
-                  height: MediaQuery.of(sheetContext).size.height * 0.9,
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(24, 20, 24, 20 + viewInsets),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    task.title,
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF111827),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _translate(
-                                      'Bình luận & tệp đính kèm',
-                                      'Comments & attachments',
-                                    ),
-                                    style: const TextStyle(
-                                      color: Color(0xFF6B7280),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.close),
-                              onPressed: () => Navigator.of(sheetContext).pop(),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            physics: const BouncingScrollPhysics(),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _translate('Bình luận', 'Comments'),
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                if (commentsLoading)
-                                  const Center(
-                                    child: CircularProgressIndicator(),
-                                  )
-                                else if (commentsError != null)
-                                  _ActivityError(message: commentsError),
-                                if (!commentsLoading && commentsError == null)
-                                  Column(
-                                    children: comments.isEmpty
-                                        ? [
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    vertical: 12,
-                                                  ),
-                                              child: Text(
-                                                _translate(
-                                                  'Chưa có bình luận nào.',
-                                                  'No comments yet.',
-                                                ),
-                                                style: const TextStyle(
-                                                  color: Color(0xFF9CA3AF),
-                                                ),
-                                              ),
-                                            ),
-                                          ]
-                                        : comments
-                                              .map(
-                                                (comment) => ListTile(
-                                                  contentPadding:
-                                                      EdgeInsets.zero,
-                                                  leading: CircleAvatar(
-                                                    radius: 20,
-                                                    backgroundColor:
-                                                        const Color(0xFFEFF4FF),
-                                                    child: Text(
-                                                      _initialsForUser(
-                                                        comment.userId,
-                                                      ),
-                                                      style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color: Color(
-                                                          0xFF1E3A8A,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  title: Text(comment.content),
-                                                  subtitle: Text(
-                                                    '${_resolveMemberName(comment.userId)} • ${_formatTimestamp(comment.createdAt)}',
-                                                    style: const TextStyle(
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                  trailing: IconButton(
-                                                    icon: const Icon(
-                                                      Icons.delete_outline,
-                                                    ),
-                                                    onPressed: () async {
-                                                      await _controller
-                                                          .deleteTaskComment(
-                                                            task.taskId,
-                                                            comment.commentId,
-                                                          );
-                                                    },
-                                                  ),
-                                                ),
-                                              )
-                                              .toList(),
-                                  ),
-                                const SizedBox(height: 16),
-                                TextField(
-                                  controller: commentController,
-                                  minLines: 2,
-                                  maxLines: 4,
-                                  decoration: InputDecoration(
-                                    labelText: _translate(
-                                      'Thêm bình luận mới',
-                                      'Add a comment',
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    suffixIcon: submittingComment
-                                        ? const Padding(
-                                            padding: EdgeInsets.all(12),
-                                            child: SizedBox(
-                                              height: 18,
-                                              width: 18,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              ),
-                                            ),
-                                          )
-                                        : IconButton(
-                                            icon: const Icon(FeatherIcons.send),
-                                            onPressed: submitComment,
-                                          ),
-                                  ),
-                                  textInputAction: TextInputAction.newline,
-                                ),
-                                const SizedBox(height: 28),
-                                Text(
-                                  _translate('Tệp đính kèm', 'Attachments'),
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                if (filesLoading)
-                                  const Center(
-                                    child: CircularProgressIndicator(),
-                                  )
-                                else if (filesError != null)
-                                  _ActivityError(message: filesError),
-                                if (!filesLoading && filesError == null)
-                                  Column(
-                                    children: files.isEmpty
-                                        ? [
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    vertical: 12,
-                                                  ),
-                                              child: Text(
-                                                _translate(
-                                                  'Chưa có tệp nào được tải lên.',
-                                                  'No files uploaded yet.',
-                                                ),
-                                                style: const TextStyle(
-                                                  color: Color(0xFF9CA3AF),
-                                                ),
-                                              ),
-                                            ),
-                                          ]
-                                        : files
-                                              .map(
-                                                (file) => Card(
-                                                  elevation: 0,
-                                                  margin: const EdgeInsets.only(
-                                                    bottom: 12,
-                                                  ),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          14,
-                                                        ),
-                                                    side: const BorderSide(
-                                                      color: Color(0xFFE5E7EB),
-                                                    ),
-                                                  ),
-                                                  child: ListTile(
-                                                    leading: CircleAvatar(
-                                                      backgroundColor:
-                                                          const Color(
-                                                            0xFFEEF2FF,
-                                                          ),
-                                                      child: Text(
-                                                        _fileBadgeLabel(file),
-                                                        style: const TextStyle(
-                                                          fontSize: 11,
-                                                          color: Color(
-                                                            0xFF3730A3,
-                                                          ),
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    title: Text(
-                                                      file.fileName,
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                    subtitle: Column(
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          '${file.uploadedByName} • ${_formatTimestamp(file.createdAt)} • ${_formatFileSize(file.fileSize)}',
-                                                          style:
-                                                              const TextStyle(
-                                                                fontSize: 12,
-                                                              ),
-                                                        ),
-                                                        if (file.description !=
-                                                                null &&
-                                                            file
-                                                                .description!
-                                                                .isNotEmpty)
-                                                          Padding(
-                                                            padding:
-                                                                const EdgeInsets.only(
-                                                                  top: 4,
-                                                                ),
-                                                            child: Text(
-                                                              file.description!,
-                                                              style:
-                                                                  const TextStyle(
-                                                                    fontSize:
-                                                                        12,
-                                                                    color: Color(
-                                                                      0xFF4B5563,
-                                                                    ),
-                                                                  ),
-                                                            ),
-                                                          ),
-                                                      ],
-                                                    ),
-                                                    onTap: () async {
-                                                      await Clipboard.setData(
-                                                        ClipboardData(
-                                                          text: file.fileUrl,
-                                                        ),
-                                                      );
-                                                      if (!mounted) return;
-                                                      ScaffoldMessenger.of(
-                                                        this.context,
-                                                      ).showSnackBar(
-                                                        SnackBar(
-                                                          content: Text(
-                                                            _translate(
-                                                              'Đã sao chép liên kết tải tệp.',
-                                                              'File link copied to clipboard.',
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      );
-                                                    },
-                                                    trailing: IconButton(
-                                                      icon: const Icon(
-                                                        Icons.delete_outline,
-                                                      ),
-                                                      onPressed: () async {
-                                                        await _controller
-                                                            .deleteTaskFile(
-                                                              task.taskId,
-                                                              file.fileId,
-                                                            );
-                                                      },
-                                                    ),
-                                                  ),
-                                                ),
-                                              )
-                                              .toList(),
-                                  ),
-                                const SizedBox(height: 12),
-                                TextField(
-                                  controller: fileDescriptionController,
-                                  decoration: InputDecoration(
-                                    labelText: _translate(
-                                      'Mô tả tệp (tuỳ chọn)',
-                                      'File description (optional)',
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    onPressed: isUploadingFile
-                                        ? null
-                                        : handleFileUpload,
-                                    icon: isUploadingFile
-                                        ? const SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : const Icon(FeatherIcons.paperclip),
-                                    label: Text(
-                                      isUploadingFile
-                                          ? _translate(
-                                              'Đang tải lên...',
-                                              'Uploading...',
-                                            )
-                                          : _translate(
-                                              'Chọn và tải lên tệp',
-                                              'Choose & upload file',
-                                            ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
+      builder: (sheetContext) => _TaskActivitySheet(
+        task: task,
+        controller: _controller,
+        translate: _translate,
+        parentContext: context,
+        resolveMemberName: _resolveMemberName,
+        initialsForUser: _initialsForUser,
+        formatTimestamp: _formatTimestamp,
+        formatFileSize: _formatFileSize,
+        fileBadgeLabel: _fileBadgeLabel,
+        resolveFileBytes: _resolveFileBytes,
+        mimeFromExtension: _mimeFromExtension,
+      ),
     );
-
-    commentController.dispose();
-    fileDescriptionController.dispose();
   }
 
   Future<void> _showMoveTaskSheet(BoardTask task) async {
@@ -2923,6 +2472,471 @@ class _ActivityError extends StatelessWidget {
         message!,
         style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 13),
       ),
+    );
+  }
+}
+
+class _TaskActivitySheet extends StatefulWidget {
+  const _TaskActivitySheet({
+    required this.task,
+    required this.controller,
+    required this.translate,
+    required this.parentContext,
+    required this.resolveMemberName,
+    required this.initialsForUser,
+    required this.formatTimestamp,
+    required this.formatFileSize,
+    required this.fileBadgeLabel,
+    required this.resolveFileBytes,
+    required this.mimeFromExtension,
+  });
+
+  final BoardTask task;
+  final TasksController controller;
+  final String Function(String, String) translate;
+  final BuildContext parentContext;
+  final String Function(String) resolveMemberName;
+  final String Function(String) initialsForUser;
+  final String Function(DateTime) formatTimestamp;
+  final String Function(int) formatFileSize;
+  final String Function(TaskFile) fileBadgeLabel;
+  final Future<List<int>> Function(PlatformFile) resolveFileBytes;
+  final String Function(String?) mimeFromExtension;
+
+  @override
+  State<_TaskActivitySheet> createState() => _TaskActivitySheetState();
+}
+
+class _TaskActivitySheetState extends State<_TaskActivitySheet> {
+  late final TextEditingController _commentController;
+  late final TextEditingController _fileDescriptionController;
+  bool _submittingComment = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _commentController = TextEditingController();
+    _fileDescriptionController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    _fileDescriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitComment() async {
+    final content = _commentController.text.trim();
+    if (content.isEmpty || _submittingComment) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _submittingComment = true);
+    try {
+      await widget.controller.addTaskComment(widget.task.taskId, content);
+      _commentController.clear();
+    } catch (e) {
+      _showSnackBar(
+        widget.translate(
+          'Không gửi được bình luận: $e',
+          'Failed to post comment: $e',
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _submittingComment = false);
+      }
+    }
+  }
+
+  Future<void> _handleFileUpload() async {
+    if (widget.controller.isUploadingFile(widget.task.taskId)) return;
+    try {
+      final result = await FilePicker.platform.pickFiles(withData: kIsWeb);
+      if (result == null || result.files.isEmpty) return;
+      final selected = result.files.first;
+      final bytes = await widget.resolveFileBytes(selected);
+      final description = _fileDescriptionController.text.trim();
+      await widget.controller.uploadTaskFile(
+        widget.task.taskId,
+        UploadTaskFileRequest(
+          taskId: widget.task.taskId,
+          description: description.isEmpty ? null : description,
+          fileName: selected.name,
+          mimeType: widget.mimeFromExtension(selected.extension),
+          bytes: bytes,
+        ),
+      );
+      _fileDescriptionController.clear();
+      _showSnackBar(
+        widget.translate(
+          'Đã tải lên tệp ${selected.name}',
+          'Uploaded file ${selected.name}',
+        ),
+      );
+    } catch (e) {
+      _showSnackBar(
+        widget.translate(
+          'Không tải lên được tệp: $e',
+          'Unable to upload file: $e',
+        ),
+      );
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(
+      widget.parentContext,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+    return AnimatedBuilder(
+      animation: widget.controller,
+      builder: (context, _) {
+        final comments = widget.controller.commentsForTask(widget.task.taskId);
+        final files = widget.controller.filesForTask(widget.task.taskId);
+        final commentsLoading = widget.controller.commentsLoading(
+          widget.task.taskId,
+        );
+        final filesLoading = widget.controller.filesLoading(widget.task.taskId);
+        final commentsError = widget.controller.commentsError(
+          widget.task.taskId,
+        );
+        final filesError = widget.controller.filesError(widget.task.taskId);
+        final isUploadingFile = widget.controller.isUploadingFile(
+          widget.task.taskId,
+        );
+
+        return SizedBox(
+          height: MediaQuery.of(context).size.height * 0.9,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(24, 20, 24, 20 + viewInsets),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.task.title,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF111827),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.translate(
+                              'Bình luận & tệp đính kèm',
+                              'Comments & attachments',
+                            ),
+                            style: const TextStyle(color: Color(0xFF6B7280)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.translate('Bình luận', 'Comments'),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (commentsLoading)
+                          const Center(child: CircularProgressIndicator())
+                        else if (commentsError != null)
+                          _ActivityError(message: commentsError)
+                        else
+                          Column(
+                            children: comments.isEmpty
+                                ? [
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      child: Text(
+                                        widget.translate(
+                                          'Chưa có bình luận nào.',
+                                          'No comments yet.',
+                                        ),
+                                        style: const TextStyle(
+                                          color: Color(0xFF9CA3AF),
+                                        ),
+                                      ),
+                                    ),
+                                  ]
+                                : comments
+                                      .map(
+                                        (comment) => ListTile(
+                                          contentPadding: EdgeInsets.zero,
+                                          leading: CircleAvatar(
+                                            radius: 20,
+                                            backgroundColor: const Color(
+                                              0xFFEFF4FF,
+                                            ),
+                                            child: Text(
+                                              widget.initialsForUser(
+                                                comment.userId,
+                                              ),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: Color(0xFF1E3A8A),
+                                              ),
+                                            ),
+                                          ),
+                                          title: Text(comment.content),
+                                          subtitle: Text(
+                                            '${widget.resolveMemberName(comment.userId)} • ${widget.formatTimestamp(comment.createdAt)}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          trailing: IconButton(
+                                            icon: const Icon(
+                                              Icons.delete_outline,
+                                            ),
+                                            onPressed: () async {
+                                              await widget.controller
+                                                  .deleteTaskComment(
+                                                    widget.task.taskId,
+                                                    comment.commentId,
+                                                  );
+                                            },
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                          ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _commentController,
+                          minLines: 2,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            labelText: widget.translate(
+                              'Thêm bình luận mới',
+                              'Add a comment',
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            suffixIcon: _submittingComment
+                                ? const Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: SizedBox(
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  )
+                                : IconButton(
+                                    icon: const Icon(FeatherIcons.send),
+                                    onPressed: _submitComment,
+                                  ),
+                          ),
+                          textInputAction: TextInputAction.newline,
+                        ),
+                        const SizedBox(height: 28),
+                        Text(
+                          widget.translate('Tệp đính kèm', 'Attachments'),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (filesLoading)
+                          const Center(child: CircularProgressIndicator())
+                        else if (filesError != null)
+                          _ActivityError(message: filesError)
+                        else
+                          Column(
+                            children: files.isEmpty
+                                ? [
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      child: Text(
+                                        widget.translate(
+                                          'Chưa có tệp nào được tải lên.',
+                                          'No files uploaded yet.',
+                                        ),
+                                        style: const TextStyle(
+                                          color: Color(0xFF9CA3AF),
+                                        ),
+                                      ),
+                                    ),
+                                  ]
+                                : files
+                                      .map(
+                                        (file) => Card(
+                                          elevation: 0,
+                                          margin: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                            side: const BorderSide(
+                                              color: Color(0xFFE5E7EB),
+                                            ),
+                                          ),
+                                          child: ListTile(
+                                            leading: CircleAvatar(
+                                              backgroundColor: const Color(
+                                                0xFFEEF2FF,
+                                              ),
+                                              child: Text(
+                                                widget.fileBadgeLabel(file),
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Color(0xFF3730A3),
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                            title: Text(
+                                              file.fileName,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            subtitle: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '${file.uploadedByName} • ${widget.formatTimestamp(file.createdAt)} • ${widget.formatFileSize(file.fileSize)}',
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                                if (file.description != null &&
+                                                    file
+                                                        .description!
+                                                        .isNotEmpty)
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          top: 4,
+                                                        ),
+                                                    child: Text(
+                                                      file.description!,
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        color: Color(
+                                                          0xFF4B5563,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                            onTap: () async {
+                                              await Clipboard.setData(
+                                                ClipboardData(
+                                                  text: file.fileUrl,
+                                                ),
+                                              );
+                                              _showSnackBar(
+                                                widget.translate(
+                                                  'Đã sao chép liên kết tải tệp.',
+                                                  'File link copied to clipboard.',
+                                                ),
+                                              );
+                                            },
+                                            trailing: IconButton(
+                                              icon: const Icon(
+                                                Icons.delete_outline,
+                                              ),
+                                              onPressed: () async {
+                                                await widget.controller
+                                                    .deleteTaskFile(
+                                                      widget.task.taskId,
+                                                      file.fileId,
+                                                    );
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                          ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _fileDescriptionController,
+                          decoration: InputDecoration(
+                            labelText: widget.translate(
+                              'Mô tả tệp (tuỳ chọn)',
+                              'File description (optional)',
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: isUploadingFile
+                                ? null
+                                : _handleFileUpload,
+                            icon: isUploadingFile
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(FeatherIcons.paperclip),
+                            label: Text(
+                              isUploadingFile
+                                  ? widget.translate(
+                                      'Đang tải lên...',
+                                      'Uploading...',
+                                    )
+                                  : widget.translate(
+                                      'Chọn và tải lên tệp',
+                                      'Choose & upload file',
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

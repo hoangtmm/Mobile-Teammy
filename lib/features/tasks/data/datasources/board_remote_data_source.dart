@@ -271,7 +271,20 @@ class BoardRemoteDataSource {
   }
 
   String _extractValue(List<int> bodyBytes) {
-    final decoded = jsonDecode(utf8.decode(bodyBytes)) as Map<String, dynamic>;
-    return decoded['value'] as String? ?? '';
+    if (bodyBytes.isEmpty) return '';
+    final decoded = jsonDecode(utf8.decode(bodyBytes));
+    if (decoded is Map<String, dynamic>) {
+      final value = decoded['value'] ?? decoded['id'] ?? decoded['data'];
+      if (value is String) return value;
+      if (value is num || value is bool) return value.toString();
+      return ''; // unsupported structure
+    }
+    if (decoded is String) {
+      return decoded;
+    }
+    if (decoded is num || decoded is bool) {
+      return decoded.toString();
+    }
+    return '';
   }
 }
