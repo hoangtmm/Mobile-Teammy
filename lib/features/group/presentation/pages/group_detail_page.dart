@@ -5,9 +5,11 @@ import '../../../../core/constants/api_constants.dart';
 import '../../../../core/localization/app_language.dart';
 import '../../../auth/domain/entities/auth_session.dart';
 import '../../data/datasources/group_remote_data_source.dart';
+import '../../data/datasources/topic_remote_data_source.dart';
 import '../../domain/entities/group.dart';
 import '../../domain/entities/group_member.dart';
 import '../controllers/group_detail_controller.dart';
+import 'topic_selection_page.dart';
 import '../widgets/skill_tag.dart';
 
 class GroupDetailPage extends StatefulWidget {
@@ -140,7 +142,7 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
             const SizedBox(height: 20),
             _MentorSection(group: group, language: widget.language),
             const SizedBox(height: 20),
-            _TopicSection(group: group, isLeader: isLeader, language: widget.language),
+            _TopicSection(group: group, isLeader: isLeader, language: widget.language, session: widget.session, onSelectTopic: () => _loadAndShowTopics(context)),
             const SizedBox(height: 20),
             _TechnologiesSection(group: group, language: widget.language),
             const SizedBox(height: 20),
@@ -155,6 +157,48 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _loadAndShowTopics(BuildContext context) async {
+    try {
+      final topicDataSource = TopicRemoteDataSource(baseUrl: kApiBaseUrl);
+      final topicModels = await topicDataSource.fetchTopics(widget.session.accessToken);
+      
+      if (!context.mounted) return;
+
+      final topics = topicModels.map((model) => model.toEntity()).toList();
+
+      // Get mentor user ID from group mentor or session
+      final group = _controller.group;
+      final mentorUserId = group?.mentor?.userId ?? widget.session.userId;
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => TopicSelectionPage(
+            topics: topics,
+            selectedTopic: group?.topic,
+            language: widget.language,
+            groupId: group?.id,
+            accessToken: widget.session.accessToken,
+            mentorUserId: mentorUserId,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _translate(
+              'Lỗi tải danh sách chủ đề: $e',
+              'Error loading topics: $e',
+            ),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showEditGroup() {
@@ -453,8 +497,10 @@ class _TopicSection extends StatelessWidget {
   final Group group;
   final bool isLeader;
   final AppLanguage language;
+  final AuthSession session;
+  final VoidCallback? onSelectTopic;
 
-  const _TopicSection({required this.group, required this.isLeader, required this.language});
+  const _TopicSection({required this.group, required this.isLeader, required this.language, required this.session, this.onSelectTopic});
 
   String _translate(String vi, String en) => language == AppLanguage.vi ? vi : en;
 
@@ -483,7 +529,7 @@ class _TopicSection extends StatelessWidget {
             Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () => _showTopicSnackbar(context),
+                onTap: onSelectTopic,
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   decoration: BoxDecoration(
@@ -519,13 +565,27 @@ class _TopicSection extends StatelessWidget {
               Text(group.topic!.description, style: const TextStyle(fontSize: 13, color: Color(0xFF747A8A)), maxLines: 2, overflow: TextOverflow.ellipsis),
             ],
           )
-        : Text(_translate('Chưa chọn chủ đề', 'No topic selected'), style: const TextStyle(fontSize: 14, color: Color(0xFF747A8A)));
-  }
-
-  void _showTopicSnackbar(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(_translate('Chuyển sang danh sách chủ đề', 'Navigate to topic list'))),
-    );
+        : Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _translate('Chưa chọn chủ đề', 'No topic selected'),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF747A8A),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
   }
 }
 

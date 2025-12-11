@@ -79,7 +79,7 @@ class ChatHubService {
       }
       final groupId = _joinedGroupId;
       if (groupId != null) {
-        connection.invoke('JoinGroup', args: <Object>[groupId]).catchError((e) {});
+        connection.invoke('JoinGroup', args: <Object>[groupId]).catchError((e) => null);
       }
       
     });
