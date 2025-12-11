@@ -284,7 +284,7 @@ class _AppBar extends StatelessWidget {
     final initials =
         (profile?.displayName.isNotEmpty == true) ? profile!.displayName[0] : 'T';
     return Container(
-      padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
+      padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 12),
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [

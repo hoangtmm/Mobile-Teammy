@@ -10,18 +10,20 @@ class SkillTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const baseColor = Color(0xFF3B5FE5);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(6),
+        color: baseColor.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: baseColor.withOpacity(0.3), width: 1),
       ),
       child: Text(
         skill,
         style: const TextStyle(
-          fontSize: 12,
-          color: Color(0xFF3A6FD8),
-          fontWeight: FontWeight.w500,
+          fontSize: 13,
+          color: baseColor,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/constants/api_constants.dart';
+import '../models/group_invitation_model.dart';
 import '../models/group_member_model.dart';
 import '../models/group_model.dart';
 import '../models/major_model.dart';
@@ -297,7 +298,7 @@ class GroupRemoteDataSource {
   ) async {
     final uri = Uri.parse('$baseUrl${ApiPath.groupUpdate(groupId)}');
 
-    final response = await _httpClient.put(
+    final response = await _httpClient.patch(
       uri,
       headers: {
         'Authorization': 'Bearer $accessToken',
@@ -306,6 +307,15 @@ class GroupRemoteDataSource {
       },
       body: jsonEncode(updateData),
     );
+
+    if (response.statusCode == 204) {
+      // 204 No Content - success but no body to return
+      // Return a basic GroupModel with the updated data
+      return GroupModel.fromJson({
+        'id': groupId,
+        ...updateData,
+      });
+    }
 
     if (response.statusCode != 200 && response.statusCode != 201) {
       try {
@@ -324,5 +334,85 @@ class GroupRemoteDataSource {
       jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
     );
   }
+
+  /// Lấy danh sách lời mời nhóm
+  Future<List<GroupInvitationModel>> fetchInvitations(String accessToken) async {
+    final uri = Uri.parse('$baseUrl/api/group-invitations');
+
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch invitations');
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(GroupInvitationModel.fromJson)
+        .toList();
+  }
+
+  /// Lấy danh sách pending invitations cho một group
+  Future<List<GroupInvitationModel>> fetchPendingInvitations(
+    String accessToken,
+    String groupId,
+  ) async {
+    final uri = Uri.parse('$baseUrl/api/groups/$groupId/pending');
+
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch pending invitations');
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(GroupInvitationModel.fromJson)
+        .toList();
+  }
+
+  /// Lấy danh sách tất cả skills từ /api/skills
+  Future<List<Map<String, dynamic>>> fetchAllSkills() async {
+    final uri = Uri.parse('$baseUrl/api/skills?pageSize=100&major=Software%20Engineering');
+
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch skills');
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    
+    // Handle both array and object responses
+    if (decoded is List) {
+      return List<Map<String, dynamic>>.from(decoded);
+    } else if (decoded is Map<String, dynamic>) {
+      // If response is an object with data array inside
+      if (decoded.containsKey('data') && decoded['data'] is List) {
+        return List<Map<String, dynamic>>.from(decoded['data']);
+      }
+    }
+    
+    return [];
+  }
+
 }
 

@@ -1,4 +1,5 @@
 import '../../domain/entities/group.dart';
+import '../../domain/entities/group_invitation.dart';
 import '../../domain/entities/group_member.dart';
 import '../../domain/entities/major.dart';
 import '../../domain/entities/skill.dart';
@@ -64,5 +65,16 @@ class GroupRepositoryImpl implements GroupRepository {
     String groupId,
   ) async {
     return await remoteDataSource.fetchGroupMembers(accessToken, groupId);
+  }
+
+  Future<List<GroupInvitation>> fetchInvitations(String accessToken) async {
+    return await remoteDataSource.fetchInvitations(accessToken);
+  }
+
+  Future<List<GroupInvitation>> fetchPendingInvitations(
+    String accessToken,
+    String groupId,
+  ) async {
+    return await remoteDataSource.fetchPendingInvitations(accessToken, groupId);
   }
 }
