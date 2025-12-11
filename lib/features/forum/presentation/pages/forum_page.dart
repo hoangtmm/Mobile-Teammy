@@ -165,15 +165,14 @@ class _ForumPageState extends State<ForumPage> {
 
   // Helper methods để kiểm tra quyền tạo bài
   bool _shouldShowGroupPostButton() {
-    // Hiện nút tạo bài tuyển nếu user có group và là leader hoặc member
-    return _membership?.hasGroup == true;
+    // Chỉ hiện nút tạo bài tuyển nếu user có group VÀ là leader
+    return _membership?.hasGroup == true && _membership?.status == 'leader';
   }
 
   bool _shouldShowPersonalPostButton() {
-    // Ẩn nút tạo bài cá nhân nếu user là leader
-    // Hiện nếu: chưa có group HOẶC là member (không phải leader)
-    if (_membership?.hasGroup != true) return true; // Chưa có group
-    return _membership?.status != 'leader'; // Có group nhưng không phải leader
+    // Chỉ hiện nút tạo bài cá nhân nếu chưa có group
+    // Ẩn nếu: đã có group (bất kể leader hay member)
+    return _membership?.hasGroup != true;
   }
 
   Future<void> _openCreateRecruitmentPost() async {
