@@ -181,6 +181,7 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
             groupId: group?.id,
             accessToken: widget.session.accessToken,
             mentorUserId: mentorUserId,
+            group: group,
           ),
         ),
       );
