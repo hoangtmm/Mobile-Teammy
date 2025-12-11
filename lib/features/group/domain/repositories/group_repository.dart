@@ -1,4 +1,5 @@
 import '../entities/group.dart';
+import '../entities/group_member.dart';
 import '../entities/major.dart';
 import '../entities/skill.dart';
 
@@ -21,12 +22,21 @@ abstract class GroupRepository {
     String majorName,
   );
 
+  /// Lấy danh sách thành viên của nhóm
+  Future<List<GroupMember>> fetchGroupMembers(
+    String accessToken,
+    String groupId,
+  );
+
   /// Tạo nhóm mới
   Future<Group> createGroup(
     String accessToken, {
     required String name,
-    required String description,
+    String? description,
     required int maxMembers,
     required List<String> skills,
   });
+
+  /// Rời khỏi nhóm
+  Future<void> leaveGroup(String accessToken, String groupId);
 }

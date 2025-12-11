@@ -1,4 +1,5 @@
 import '../../domain/entities/group.dart';
+import '../../domain/entities/group_member.dart';
 import '../../domain/entities/major.dart';
 import '../../domain/entities/skill.dart';
 import '../../domain/repositories/group_repository.dart';
@@ -39,7 +40,7 @@ class GroupRepositoryImpl implements GroupRepository {
   Future<Group> createGroup(
     String accessToken, {
     required String name,
-    required String description,
+    String? description,
     required int maxMembers,
     required List<String> skills,
   }) async {
@@ -50,5 +51,18 @@ class GroupRepositoryImpl implements GroupRepository {
       maxMembers: maxMembers,
       skills: skills,
     );
+  }
+
+  @override
+  Future<void> leaveGroup(String accessToken, String groupId) async {
+    return await remoteDataSource.leaveGroup(accessToken, groupId);
+  }
+
+  @override
+  Future<List<GroupMember>> fetchGroupMembers(
+    String accessToken,
+    String groupId,
+  ) async {
+    return await remoteDataSource.fetchGroupMembers(accessToken, groupId);
   }
 }

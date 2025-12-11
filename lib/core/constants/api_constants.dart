@@ -31,7 +31,41 @@ class ApiPath {
   static const groupsMyGroups = '/api/groups/my';
   static String groupTracking(String groupId) =>
       '/api/groups/$groupId/tracking/reports/project';
+  static String groupBoard(String groupId) => '/api/groups/$groupId/board';
+  static String boardTaskComments(String groupId, String taskId) =>
+      '/api/groups/$groupId/board/tasks/$taskId/comments';
+  static String boardComment(String groupId, String commentId) =>
+      '/api/groups/$groupId/board/comments/$commentId';
+  static String boardTaskFiles(String groupId, String taskId) =>
+      '/api/groups/$groupId/board/tasks/$taskId/files';
+  static String boardFiles(String groupId) => '/api/groups/$groupId/board/files';
+  static String boardFile(String groupId, String fileId) =>
+      '/api/groups/$groupId/board/files/$fileId';
+  static String boardUploadFile(String groupId) =>
+      '/api/groups/$groupId/board/files/upload';
+  static String groupBacklog(String groupId) =>
+      '/api/groups/$groupId/tracking/backlog';
+  static String groupBacklogItem(String groupId, String backlogItemId) =>
+      '/api/groups/$groupId/tracking/backlog/$backlogItemId';
+  static String groupBacklogPromote(String groupId, String backlogItemId) =>
+      '/api/groups/$groupId/tracking/backlog/$backlogItemId/promote';
+  static String groupMilestones(String groupId) =>
+      '/api/groups/$groupId/tracking/milestones';
+  static String groupMilestone(String groupId, String milestoneId) =>
+      '/api/groups/$groupId/tracking/milestones/$milestoneId';
+  static String groupMilestoneItems(String groupId, String milestoneId) =>
+      '/api/groups/$groupId/tracking/milestones/$milestoneId/items';
+  static String groupMilestoneItem(
+    String groupId,
+    String milestoneId,
+    String backlogItemId,
+  ) => '/api/groups/$groupId/tracking/milestones/$milestoneId/items/$backlogItemId';
   static const groupsCreate = '/api/groups';
+  static String groupLeaveMember(String groupId) =>
+      '/api/groups/$groupId/members/me';
+  static String groupMembers(String groupId) => '/api/groups/$groupId/members';
+  static String groupInvite(String groupId) => '/api/groups/$groupId/invites';
+  static String groupUpdate(String groupId) => '/api/groups/$groupId';
 
   /// Major endpoints.
   static const majors = '/api/majors';

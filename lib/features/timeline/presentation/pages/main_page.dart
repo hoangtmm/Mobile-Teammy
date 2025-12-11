@@ -42,7 +42,7 @@ class _MainPageState extends State<MainPage> {
 
   final _tabs = const [
     _BottomTab(icon: Icons.view_kanban_outlined, labelVi: 'Nhom', labelEn: 'Team'),
-    _BottomTab(icon: Icons.check_box_outlined, labelVi: 'Viec cua toi', labelEn: 'My Tasks'),
+    _BottomTab(icon: Icons.check_box_outlined, labelVi: 'Bảng Kanban', labelEn: 'Kanban Board'),
     _BottomTab(icon: Icons.forum_outlined, labelVi: 'Forum', labelEn: 'Forum'),
     _BottomTab(icon: Icons.chat_bubble_outline_rounded, labelVi: 'WorkChat', labelEn: 'WorkChat'),
   ];
@@ -151,7 +151,7 @@ class _MainPageState extends State<MainPage> {
   String _getTabTitle() {
     switch (_selectedIndex) {
       case 1:
-        return _translate('Công việc', 'My Tasks');
+        return _translate('Bảng Kanban', 'Kanban Board');
       case 2:
         return _translate('Forum', 'Forum');
       case 3:
@@ -169,7 +169,10 @@ class _MainPageState extends State<MainPage> {
           language: _language,
         );
       case 1:
-        return TasksPage(language: _language);
+        return TasksPage(
+          language: _language,
+          session: widget.session,
+        );
       case 2:
         return ForumPage(language: _language);
       default:
@@ -530,7 +533,7 @@ class _UserSheetState extends State<_UserSheet> {
                         color: Color(0xFF4B5675),
                       ),
                       title: Text(
-                        _translate('Dang xuat', 'Logout'),
+                        _translate('Đăng xuất', 'Logout'),
                         style: const TextStyle(
                           fontSize: 16,
                           color: Color(0xFF1D2A4A),
@@ -578,7 +581,7 @@ class _UserSheetState extends State<_UserSheet> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  _translate('Dang xuat', 'Logout'),
+                  _translate('Đăng xuất', 'Logout'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 18,
@@ -588,7 +591,7 @@ class _UserSheetState extends State<_UserSheet> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  _translate('Ban co chac chan muon dang xuat?', 'Are you sure you want to logout?'),
+                  _translate('Bạn có chắc chắn muốn đăng xuất?', 'Are you sure you want to logout?'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 15,

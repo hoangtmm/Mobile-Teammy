@@ -106,7 +106,7 @@ class _ChatPageState extends State<ChatPage> {
           const SizedBox(height: 8),
           Expanded(
             child: RefreshIndicator(
-              color: const Color(0xFF4CB065),
+              color: const Color(0xFF5DADE2),
               onRefresh: _loadConversations,
               child: _buildConversationList(),
             ),
@@ -128,7 +128,7 @@ class _ChatPageState extends State<ChatPage> {
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
-                color: const Color(0xFF24A148),
+                color: const Color(0xFF5DADE2),
                 letterSpacing: widget.language == AppLanguage.en ? 0.5 : 0,
               ),
             ),
@@ -184,7 +184,7 @@ class _ChatPageState extends State<ChatPage> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF4CB065)),
+          borderSide: const BorderSide(color: Color(0xFF66BB6A)),
         ),
       ),
     );
@@ -201,10 +201,7 @@ class _ChatPageState extends State<ChatPage> {
         label: _t('Nhóm chat', 'Group chats'),
       ),
       _FilterChipData(filter: _ChatFilter.dm, label: _t('Tin nhắn', 'Direct')),
-      _FilterChipData(
-        filter: _ChatFilter.channel,
-        label: _t('Kênh chat', 'Channels'),
-      ),
+   
     ];
 
     return SizedBox(
@@ -224,7 +221,7 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
             selected: isSelected,
-            selectedColor: const Color(0xFF4CB065),
+            selectedColor: const Color(0xFF5DADE2),
             backgroundColor: const Color(0xFFEFF1F5),
             labelPadding: const EdgeInsets.symmetric(horizontal: 12),
             onSelected: (_) => setState(() => _filter = option.filter),
@@ -247,9 +244,13 @@ class _ChatPageState extends State<ChatPage> {
         children: [
           const SizedBox(height: 160),
           Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(
-                const Color(0xFF4CB065),
+            child: SizedBox(
+              height: 50,
+              width: 50,
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  const Color(0xFF4CB065),
+                ),
               ),
             ),
           ),

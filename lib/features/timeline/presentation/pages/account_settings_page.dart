@@ -191,7 +191,13 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
         ),
         body: SafeArea(
           child: _loadingProfile
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(
+                  child: SizedBox(
+                    height: 50,
+                    width: 50,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
               : _profileError
               ? _ErrorState(onRetry: _fetchProfile, t: _t)
               : Form(

@@ -49,9 +49,10 @@ class ChatRemoteDataSource {
     int page = 1,
     int pageSize = 50,
   }) async {
+    final offset = page <= 1 ? 0 : (page - 1) * pageSize;
     final uri = Uri.parse(
       '$baseUrl${ApiPath.chatSessionMessages(sessionId)}',
-    ).replace(queryParameters: {'page': '$page', 'pageSize': '$pageSize'});
+    ).replace(queryParameters: {'limit': '$pageSize', 'offset': '$offset'});
     final response = await _httpClient.get(
       uri,
       headers: {
@@ -88,9 +89,10 @@ class ChatRemoteDataSource {
     int page = 1,
     int pageSize = 50,
   }) async {
+    final offset = page <= 1 ? 0 : (page - 1) * pageSize;
     final uri = Uri.parse(
       '$baseUrl${ApiPath.groupChatMessages(groupId)}',
-    ).replace(queryParameters: {'page': '$page', 'pageSize': '$pageSize'});
+    ).replace(queryParameters: {'limit': '$pageSize', 'offset': '$offset'});
 
     final response = await _httpClient.get(
       uri,

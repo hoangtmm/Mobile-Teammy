@@ -70,12 +70,15 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     _presenceSub?.cancel();
     _typingSub?.cancel();
     _typingTimer?.cancel();
-    _hubService.leaveSession(widget.conversation.sessionId);
+
     if (widget.conversation.isGroup &&
         widget.conversation.groupId?.isNotEmpty == true) {
-      _hubService.leaveGroup(widget.conversation.groupId!);
+      unawaited(_hubService.leaveGroup(widget.conversation.groupId!));
+    } else {
+      unawaited(_hubService.leaveSession(widget.conversation.sessionId));
     }
     _hubService.dispose();
+
     _composerController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -154,36 +157,97 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   }
 
   Future<void> _connectHub() async {
-    _messageSub = _hubService.messages.listen((message) {
-      if (message.sessionId != widget.conversation.sessionId) return;
-      setState(() => _messages = [..._messages, message]);
-      _scrollToBottom();
-    });
-    _presenceSub = _hubService.presence.listen(
-      (online) => setState(() => _isOnline = online),
-    );
-    _typingSub = _hubService.typing.listen(
-      (typing) => setState(() => _isTyping = typing),
-    );
+    try {
+      _messageSub = _hubService.messages.listen(
+        (message) {
+          if (!mounted) return;
+          setState(() => _messages = [..._messages, message]);
+          _scrollToBottom();
+        },
+        onError: (error) {
+          // Silent fail
+        },
+      );
 
-    await _hubService.joinSession(widget.conversation.sessionId);
-    if (widget.conversation.isGroup &&
-        widget.conversation.groupId?.isNotEmpty == true) {
-      await _hubService.joinGroup(widget.conversation.groupId!);
+      _presenceSub = _hubService.presence.listen(
+        (online) {
+          if (!mounted) return;
+          setState(() => _isOnline = online);
+        },
+        onError: (error) {
+          // Silent fail
+        },
+      );
+
+      _typingSub = _hubService.typing.listen(
+        (typing) {
+          if (!mounted) return;
+          setState(() => _isTyping = typing);
+        },
+        onError: (error) {
+          // Silent fail
+        },
+      );
+
+      final bool isGroupConversation =
+          widget.conversation.isGroup && widget.conversation.groupId?.isNotEmpty == true;
+      if (isGroupConversation) {
+        await _hubService.joinGroup(widget.conversation.groupId!);
+      } else {
+        await _hubService.joinSession(widget.conversation.sessionId);
+      }
+    } catch (e) {
+      // Silent fail - will retry on auto-reconnect
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
+      );
+    } catch (e) {
     }
   }
 
   Future<void> _sendMessage() async {
     final text = _composerController.text.trim();
     if (text.isEmpty || _sending) return;
-    setState(() => _sending = true);
+
+    // Optimistic update - add message immediately to UI
+    final optimisticMessage = ChatMessage(
+      messageId: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+      sessionId: widget.conversation.sessionId,
+      senderId: widget.session.userId,
+      senderName: widget.session.displayName ?? 'You',
+      content: text,
+      createdAt: DateTime.now(),
+      isMine: true,
+    );
+
+    setState(() {
+      _messages = [..._messages, optimisticMessage];
+      _sending = true;
+    });
+    _composerController.clear();
+    _scrollToBottom();
+
     try {
       await widget.repository.sendMessage(
         accessToken: widget.session.accessToken,
         sessionId: widget.conversation.sessionId,
         content: text,
       );
-      _composerController.clear();
+    } catch (e) {
+      if (mounted) {
+        _showError('Failed to send message: $e');
+        setState(() {
+          _messages = _messages
+              .where((m) => m.messageId != optimisticMessage.messageId)
+              .toList();
+        });
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -205,9 +269,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   void _notifyTyping(bool isTyping) {
     if (widget.conversation.isGroup &&
         widget.conversation.groupId?.isNotEmpty == true) {
-      _hubService.sendGroupTyping(widget.conversation.groupId!, isTyping);
+      _hubService.sendGroupTyping(widget.conversation.groupId!, isTyping).catchError((e) {
+      });
     } else {
-      _hubService.sendSessionTyping(widget.conversation.sessionId, isTyping);
+      _hubService.sendSessionTyping(widget.conversation.sessionId, isTyping).catchError((e) {
+      });
     }
   }
 
@@ -245,7 +311,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
             const SizedBox(height: 8),
             Expanded(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(
+                      child: SizedBox(
+                        height: 50,
+                        width: 50,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
                   : RefreshIndicator(
                       onRefresh: () => _loadHistory(),
                       child: _MessageList(
@@ -269,7 +341,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     );
   }
 }
-
 class _DetailHeader extends StatelessWidget {
   const _DetailHeader({
     required this.title,
@@ -290,10 +361,10 @@ class _DetailHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusText = isTyping
-        ? _statusText(language, 'Dang nhap...', 'Typing...')
+        ? _statusText(language, 'Đang nhập...', 'Typing...')
         : isOnline
-            ? _statusText(language, 'Dang hoat dong', 'Active now')
-            : _statusText(language, 'Ngoai tuyen', 'Offline');
+        ? _statusText(language, 'Đang hoạt động', 'Active now')
+        : _statusText(language, 'Ngoài tuyến', 'Offline');
     final statusColor = isTyping
         ? const Color(0xFFF97316)
         : isOnline
@@ -456,6 +527,17 @@ class _Bubble extends StatelessWidget {
   final ChatMessage message;
   final bool isMine;
 
+  String _formatMessageTime(DateTime dateTime) {
+    final hour = dateTime.hour;
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = (hour % 12 == 0 ? 12 : hour % 12).toString().padLeft(
+      2,
+      '0',
+    );
+    return '$displayHour:$minute $period';
+  }
+
   @override
   Widget build(BuildContext context) {
     final bubbleColor = isMine
@@ -497,7 +579,7 @@ class _Bubble extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              '${message.createdAt.hour.toString().padLeft(2, '0')}:${message.createdAt.minute.toString().padLeft(2, '0')}',
+              _formatMessageTime(message.createdAt),
               style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
             ),
           ],
@@ -611,5 +693,3 @@ class _Composer extends StatelessWidget {
     );
   }
 }
-
-
