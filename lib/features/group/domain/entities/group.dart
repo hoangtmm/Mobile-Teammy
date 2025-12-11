@@ -6,11 +6,33 @@ class Topic {
   final String topicId;
   final String topicName;
   final String description;
+  final String? majorName;
+  final String? status;
+  final List<TopicMentor>? mentors;
+  final List<String>? skills;
+  final DateTime? createdAt;
 
   const Topic({
     required this.topicId,
     required this.topicName,
     required this.description,
+    this.majorName,
+    this.status,
+    this.mentors,
+    this.skills,
+    this.createdAt,
+  });
+}
+
+class TopicMentor {
+  final String mentorId;
+  final String mentorName;
+  final String mentorEmail;
+
+  const TopicMentor({
+    required this.mentorId,
+    required this.mentorName,
+    required this.mentorEmail,
   });
 }
 
