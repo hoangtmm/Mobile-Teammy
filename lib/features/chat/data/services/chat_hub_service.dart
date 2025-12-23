@@ -19,7 +19,11 @@ class ChatHubService {
   String? _joinedGroupId;
   final Set<String> _groupMembersOnline = <String>{};
   List<Map<String, dynamic>> _currentActiveUsers = [];
+  final Set<String> _typingUsers = <String>{};
+  Timer? _typingTimeoutTimer;
   final StreamController<ChatMessage> _messageController =
+      StreamController.broadcast();
+  final StreamController<ChatMessage> _messageUpdatedController =
       StreamController.broadcast();
   final StreamController<bool> _presenceController =
       StreamController.broadcast();
@@ -28,9 +32,13 @@ class ChatHubService {
       StreamController.broadcast();
   final StreamController<List<Map<String, dynamic>>> _activeUsersController =
       StreamController.broadcast();
+  final StreamController<List<String>> _typingUsersController =
+      StreamController.broadcast();
   Stream<ChatMessage> get messages => _messageController.stream;
+  Stream<ChatMessage> get messageUpdated => _messageUpdatedController.stream;
   Stream<bool> get presence => _presenceController.stream;
   Stream<bool> get typing => _typingController.stream;
+  Stream<List<String>> get typingUsers => _typingUsersController.stream;
   Stream<Map<String, dynamic>> get globalPresence => _globalPresenceController.stream;
   Stream<List<Map<String, dynamic>>> get activeUsers => _activeUsersController.stream;
 
@@ -61,6 +69,7 @@ class ChatHubService {
 
     final connection = builder.build();
     connection.on('ReceiveMessage', _onReceiveMessage);
+    connection.on('MessageUpdated', _onMessageUpdated);
     connection.on('SessionPresenceSnapshot', _onSessionPresenceSnapshot);
     connection.on('SessionPresenceChanged', _onSessionPresenceChanged);
     connection.on('PresenceChanged', _onGroupPresenceChanged);
@@ -180,6 +189,19 @@ class ChatHubService {
     _messageController.add(message);
   }
 
+  void _onMessageUpdated(List<Object?>? arguments) {
+    if (arguments == null || arguments.isEmpty) return;
+    final data = arguments.first;
+    if (data is! Map) return;
+    
+    final message = ChatMessageModel.fromJson(
+      Map<String, dynamic>.from(data),
+      currentUserId: currentUserId,
+      fallbackSessionId: _activeConversationId(),
+    );
+    _messageUpdatedController.add(message);
+  }
+
   void _onSessionPresenceSnapshot(List<Object?>? arguments) {
     if (arguments == null || arguments.isEmpty) return;
     final data = arguments.first;
@@ -287,8 +309,23 @@ class ChatHubService {
     final userId = map['userId']?.toString();
     final isTyping = map['isTyping'] == true;
 
-    if (sessionId == null || sessionId != _joinedSessionId || userId == currentUserId) return;
-    _typingController.add(isTyping);
+    if (sessionId == null || sessionId != _joinedSessionId || userId == null || userId == currentUserId) return;
+    
+    if (isTyping) {
+      _typingUsers.add(userId);
+    } else {
+      _typingUsers.remove(userId);
+    }
+    
+    _typingController.add(_typingUsers.isNotEmpty);
+    _typingUsersController.add(List.from(_typingUsers));
+    
+    _typingTimeoutTimer?.cancel();
+    _typingTimeoutTimer = Timer(const Duration(seconds: 5), () {
+      _typingUsers.clear();
+      _typingController.add(false);
+      _typingUsersController.add([]);
+    });
   }
 
   void _onGroupTyping(List<Object?>? arguments) {
@@ -301,8 +338,23 @@ class ChatHubService {
     final userId = map['userId']?.toString();
     final isTyping = map['isTyping'] == true;
 
-    if (groupId == null || groupId != _joinedGroupId || userId == currentUserId) return;
-    _typingController.add(isTyping);
+    if (groupId == null || groupId != _joinedGroupId || userId == null || userId == currentUserId) return;
+    
+    if (isTyping) {
+      _typingUsers.add(userId);
+    } else {
+      _typingUsers.remove(userId);
+    }
+    
+    _typingController.add(_typingUsers.isNotEmpty);
+    _typingUsersController.add(List.from(_typingUsers));
+    
+    _typingTimeoutTimer?.cancel();
+    _typingTimeoutTimer = Timer(const Duration(seconds: 5), () {
+      _typingUsers.clear();
+      _typingController.add(false);
+      _typingUsersController.add([]);
+    });
   }
 
   void _onUserOnline(List<Object?>? arguments) {
@@ -338,11 +390,14 @@ class ChatHubService {
   }
 
   Future<void> dispose() async {
+    _typingTimeoutTimer?.cancel();
     await _connection?.stop();
     _connection = null;
     await _messageController.close();
+    await _messageUpdatedController.close();
     await _presenceController.close();
     await _typingController.close();
+    await _typingUsersController.close();
     await _globalPresenceController.close();
     await _activeUsersController.close();
   }

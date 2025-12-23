@@ -9,6 +9,9 @@ class ChatConversation {
     this.otherAvatarUrl,
     this.lastMessage,
     this.updatedAt,
+    this.unreadCount = 0,
+    this.isPinned = false,
+    this.pinnedAt,
   });
 
   final String sessionId;
@@ -20,6 +23,9 @@ class ChatConversation {
   final String? otherAvatarUrl;
   final String? lastMessage;
   final DateTime? updatedAt;
+  final int unreadCount;
+  final bool isPinned;
+  final DateTime? pinnedAt;
 
   bool get isGroup => type.toLowerCase() == 'group';
   bool get isDirect => type.toLowerCase() == 'dm';

@@ -55,6 +55,20 @@ class ChatRepository {
       type: type,
     );
   }
+
+  Future<void> sendGroupMessage({
+    required String accessToken,
+    required String groupId,
+    required String content,
+    String type = 'text',
+  }) {
+    return remoteDataSource.sendGroupMessage(
+      accessToken: accessToken,
+      groupId: groupId,
+      content: content,
+      type: type,
+    );
+  }
   Future<List<Map<String, dynamic>>> fetchGroupMembers({
     required String accessToken,
     required String groupId,
@@ -62,6 +76,70 @@ class ChatRepository {
     return remoteDataSource.fetchGroupMembers(
       accessToken: accessToken,
       groupId: groupId,
+    );
+  }
+
+  Future<ChatMessage> pinMessage({
+    required String accessToken,
+    required String sessionId,
+    required String messageId,
+    required String currentUserId,
+  }) {
+    return remoteDataSource.pinMessage(
+      accessToken: accessToken,
+      sessionId: sessionId,
+      messageId: messageId,
+      currentUserId: currentUserId,
+    );
+  }
+
+  Future<ChatMessage> unpinMessage({
+    required String accessToken,
+    required String sessionId,
+    required String messageId,
+    required String currentUserId,
+  }) {
+    return remoteDataSource.unpinMessage(
+      accessToken: accessToken,
+      sessionId: sessionId,
+      messageId: messageId,
+      currentUserId: currentUserId,
+    );
+  }
+
+  Future<ChatMessage> deleteMessage({
+    required String accessToken,
+    required String sessionId,
+    required String messageId,
+    required String currentUserId,
+  }) {
+    return remoteDataSource.deleteMessage(
+      accessToken: accessToken,
+      sessionId: sessionId,
+      messageId: messageId,
+      currentUserId: currentUserId,
+    );
+  }
+
+  Future<void> markAsRead({
+    required String accessToken,
+    required String sessionId,
+  }) {
+    return remoteDataSource.markAsRead(
+      accessToken: accessToken,
+      sessionId: sessionId,
+    );
+  }
+
+  Future<void> pinConversation({
+    required String accessToken,
+    required String sessionId,
+    required bool pin,
+  }) {
+    return remoteDataSource.pinConversation(
+      accessToken: accessToken,
+      sessionId: sessionId,
+      pin: pin,
     );
   }
 }
