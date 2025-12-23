@@ -13,6 +13,7 @@ import '../../domain/entities/forum_post.dart';
 import '../../domain/repositories/forum_repository.dart';
 import '../../../auth/data/datasources/user_remote_data_source.dart';
 import '../../../auth/domain/entities/user_profile.dart';
+import '../../../auth/presentation/pages/user_profile_page.dart';
 import 'forum_post_detail_page.dart';
 import 'forum_create_recruitment_post_page.dart';
 import 'forum_create_personal_post_modal.dart';
@@ -165,15 +166,14 @@ class _ForumPageState extends State<ForumPage> {
 
   // Helper methods để kiểm tra quyền tạo bài
   bool _shouldShowGroupPostButton() {
-    // Hiện nút tạo bài tuyển nếu user có group và là leader hoặc member
-    return _membership?.hasGroup == true;
+    // Chỉ hiện nút tạo bài tuyển nếu user có group VÀ là leader
+    return _membership?.hasGroup == true && _membership?.status == 'leader';
   }
 
   bool _shouldShowPersonalPostButton() {
-    // Ẩn nút tạo bài cá nhân nếu user là leader
-    // Hiện nếu: chưa có group HOẶC là member (không phải leader)
-    if (_membership?.hasGroup != true) return true; // Chưa có group
-    return _membership?.status != 'leader'; // Có group nhưng không phải leader
+    // Chỉ hiện nút tạo bài cá nhân nếu chưa có group
+    // Ẩn nếu: đã có group (bất kể leader hay member)
+    return _membership?.hasGroup != true;
   }
 
   Future<void> _openCreateRecruitmentPost() async {
@@ -644,21 +644,40 @@ class _ForumPageState extends State<ForumPage> {
             // avatar + name + time
             Row(
               children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: const Color(0xFFE5E7EB),
-                  backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
-                      ? NetworkImage(avatarUrl)
-                      : null,
-                  child: (avatarUrl != null && avatarUrl.isNotEmpty)
-                      ? null
-                      : Text(
-                          avatarInitial,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF111827),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      if (post.authorId != null && post.authorId!.isNotEmpty) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => UserProfilePage(
+                              userId: post.authorId!,
+                              session: widget.session,
+                              language: widget.language,
+                            ),
                           ),
-                        ),
+                        );
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: CircleAvatar(
+                      radius: 20,
+                      backgroundColor: const Color(0xFFE5E7EB),
+                      backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
+                          ? NetworkImage(avatarUrl)
+                          : null,
+                      child: (avatarUrl != null && avatarUrl.isNotEmpty)
+                          ? null
+                          : Text(
+                              avatarInitial,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF111827),
+                              ),
+                            ),
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Column(
@@ -947,21 +966,40 @@ class _ForumPageState extends State<ForumPage> {
           // avatar + meta
           Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: const Color(0xFFE5E7EB),
-                backgroundImage: (post.authorAvatarUrl?.isNotEmpty ?? false)
-                    ? NetworkImage(post.authorAvatarUrl!)
-                    : null,
-                child: (post.authorAvatarUrl?.isNotEmpty ?? false)
-                    ? null
-                    : Text(
-                        avatarInitial,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF111827),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    if (post.authorId != null && post.authorId!.isNotEmpty) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => UserProfilePage(
+                            userId: post.authorId!,
+                            session: widget.session,
+                            language: widget.language,
+                          ),
                         ),
-                      ),
+                      );
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(18),
+                  child: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: const Color(0xFFE5E7EB),
+                    backgroundImage: (post.authorAvatarUrl?.isNotEmpty ?? false)
+                        ? NetworkImage(post.authorAvatarUrl!)
+                        : null,
+                    child: (post.authorAvatarUrl?.isNotEmpty ?? false)
+                        ? null
+                        : Text(
+                            avatarInitial,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF111827),
+                            ),
+                          ),
+                  ),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

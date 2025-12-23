@@ -12,8 +12,11 @@ import '../../../chat/presentation/pages/chat_page.dart';
 import '../../../forum/presentation/pages/forum_page.dart';
 import '../../../tasks/presentation/pages/tasks_page.dart';
 import '../../../group/presentation/pages/group_page.dart';
+import '../../../group/presentation/pages/notifications_page.dart';
+import '../../../group/data/datasources/group_remote_data_source.dart';
 import '../../../onboarding/presentation/pages/onboarding_page.dart';
 import 'account_settings_page.dart';
+
 class MainPage extends StatefulWidget {
   const MainPage({
     super.key,
@@ -38,6 +41,7 @@ class _MainPageState extends State<MainPage> {
   late AppLanguage _language;
   double? _dragStartX;
   bool _isUserSheetOpen = false;
+  int _invitationCount = 0;
 
   final _tabs = const [
     _BottomTab(
@@ -83,6 +87,28 @@ class _MainPageState extends State<MainPage> {
       ),
     ];
     _loadProfile();
+    _loadInvitationCount();
+  }
+
+  Future<void> _loadInvitationCount() async {
+    try {
+      final dataSource = GroupRemoteDataSource(baseUrl: kApiBaseUrl);
+      
+      final profileInvitations = await dataSource.fetchProfilePostInvitations(
+        widget.session.accessToken,
+      );
+      
+      final memberInvitations = await dataSource.fetchMemberInvitations(
+        widget.session.accessToken,
+      );
+      
+      if (!mounted) return;
+      setState(() {
+        _invitationCount = profileInvitations.length + memberInvitations.length;
+      });
+    } catch (_) {
+      // Silently fail for invitation count
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -224,6 +250,19 @@ class _MainPageState extends State<MainPage> {
                   isLoading: _profileLoading,
                   onAvatarTap: _openUserSheet,
                   title: _getTabTitle(),
+                  invitationCount: _invitationCount,
+                  onNotificationTap: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => NotificationsPage(
+                          session: widget.session,
+                          language: _language,
+                        ),
+                      ),
+                    );
+                    // Reload invitation count after returning
+                    _loadInvitationCount();
+                  },
                 ),
                 if (_profileFailed)
                   Padding(
@@ -243,49 +282,49 @@ class _MainPageState extends State<MainPage> {
           bottomNavigationBar: _selectedIndex == 3
               ? null
               : SafeArea(
-            top: false,
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFE3E5E9))),
-              ),
-              padding: const EdgeInsets.only(top: 6, bottom: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: List.generate(_tabs.length, (index) {
-                  final tab = _tabs[index];
-                  final isActive = index == _selectedIndex;
-                  final color = isActive
-                      ? const Color.fromARGB(255, 65, 157, 173)
-                      : const Color(0xFF9CA3AF);
-                  final label = _language == AppLanguage.vi
-                      ? tab.labelVi
-                      : tab.labelEn;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedIndex = index),
-                    behavior: HitTestBehavior.opaque,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(tab.icon, size: 25, color: color),
-                        const SizedBox(height: 4),
-                        Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: isActive
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            color: color,
-                          ),
-                        ),
-                      ],
+                  top: false,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      border: Border(top: BorderSide(color: Color(0xFFE3E5E9))),
                     ),
-                  );
-                }),
-              ),
-            ),
-          ),
+                    padding: const EdgeInsets.only(top: 6, bottom: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: List.generate(_tabs.length, (index) {
+                        final tab = _tabs[index];
+                        final isActive = index == _selectedIndex;
+                        final color = isActive
+                            ? const Color.fromARGB(255, 65, 157, 173)
+                            : const Color(0xFF9CA3AF);
+                        final label = _language == AppLanguage.vi
+                            ? tab.labelVi
+                            : tab.labelEn;
+                        return GestureDetector(
+                          onTap: () => setState(() => _selectedIndex = index),
+                          behavior: HitTestBehavior.opaque,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(tab.icon, size: 25, color: color),
+                              const SizedBox(height: 4),
+                              Text(
+                                label,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: isActive
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                  color: color,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ),
         ),
       ),
     );
@@ -298,12 +337,16 @@ class _AppBar extends StatelessWidget {
     required this.isLoading,
     required this.onAvatarTap,
     required this.title,
+    required this.invitationCount,
+    required this.onNotificationTap,
   });
 
   final UserProfile? profile;
   final bool isLoading;
   final VoidCallback onAvatarTap;
   final String title;
+  final int invitationCount;
+  final VoidCallback onNotificationTap;
 
   @override
   Widget build(BuildContext context) {
@@ -350,9 +393,45 @@ class _AppBar extends StatelessWidget {
                 color: Color(0xFF1B2B57),
               ),
             ),
-            const Icon(
-              Icons.notifications_none_rounded,
-              color: Color(0xFF39476A),
+            GestureDetector(
+              onTap: onNotificationTap,
+              child: Stack(
+                children: [
+                  const Icon(
+                    Icons.notifications_none_rounded,
+                    color: Color(0xFF39476A),
+                    size: 28,
+                  ),
+                  if (invitationCount > 0)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Center(
+                          child: Text(
+                            invitationCount > 9 ? '9+' : '$invitationCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              height: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ],
         ),

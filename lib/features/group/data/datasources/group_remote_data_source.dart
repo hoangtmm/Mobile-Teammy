@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/constants/api_constants.dart';
+import '../../domain/entities/profile_post_invitation.dart';
+import '../../domain/entities/member_invitation.dart';
 import '../models/group_invitation_model.dart';
 import '../models/group_member_model.dart';
 import '../models/group_model.dart';
@@ -356,11 +358,69 @@ class GroupRemoteDataSource {
     );
   }
 
-  /// Lấy danh sách lời mời nhóm
+  /// Lấy danh sách lời mời từ profile posts
+  Future<List<ProfilePostInvitation>> fetchProfilePostInvitations(
+    String accessToken,
+  ) async {
+    final uri = Uri.parse('$baseUrl/api/profile-posts/my/invitations').replace(
+      queryParameters: {'status': 'pending'},
+    );
+
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch profile post invitations');
+    }
+
+    final decoded =
+        jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(ProfilePostInvitation.fromJson)
+        .toList();
+  }
+
+  /// Lấy danh sách lời mời thành viên
+  Future<List<MemberInvitation>> fetchMemberInvitations(
+    String accessToken,
+  ) async {
+    final uri = Uri.parse('$baseUrl/api/invitations').replace(
+      queryParameters: {'status': 'pending'},
+    );
+
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch member invitations');
+    }
+
+    final decoded =
+        jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(MemberInvitation.fromJson)
+        .toList();
+  }
+
+  /// Lấy danh sách lời mời nhóm (deprecated - use fetchMemberInvitations and fetchProfilePostInvitations)
   Future<List<GroupInvitationModel>> fetchInvitations(
     String accessToken,
   ) async {
-    final uri = Uri.parse('$baseUrl/api/group-invitations');
+    final uri = Uri.parse('$baseUrl${ApiPath.invitationsList}').replace(
+      queryParameters: {'status': 'pending'},
+    );
 
     final response = await _httpClient.get(
       uri,
@@ -437,5 +497,50 @@ class GroupRemoteDataSource {
     }
 
     return [];
+  }
+
+  /// Kick member khỏi group
+  Future<void> kickMember({
+    required String accessToken,
+    required String groupId,
+    required String userId,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/groups/$groupId/members/$userId');
+
+    final response = await _httpClient.delete(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception('Failed to kick member: ${response.statusCode}');
+    }
+  }
+
+  /// Chuyển quyền leader cho member khác
+  Future<void> transferLeader({
+    required String accessToken,
+    required String groupId,
+    required String newLeaderUserId,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/groups/$groupId/leader/transfer');
+
+    final response = await _httpClient.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+        'accept': 'application/json',
+      },
+      body: jsonEncode({'newLeaderUserId': newLeaderUserId}),
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      final errorBody = utf8.decode(response.bodyBytes);
+      throw Exception('Failed to transfer leader: $errorBody');
+    }
   }
 }

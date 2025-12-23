@@ -35,6 +35,30 @@ class UserRemoteDataSource {
     return UserProfileModel.fromJson(json);
   }
 
+  Future<UserProfileModel> getProfileByUserId(
+    String accessToken,
+    String userId,
+  ) async {
+    final uri = Uri.parse('$baseUrl${ApiPath.usersGetById(userId)}');
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'text/plain',
+      },
+    );
+    if (response.statusCode != 200) {
+      throw AuthApiException(
+        statusCode: response.statusCode,
+        body: response.body,
+      );
+    }
+
+    final json =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    return UserProfileModel.fromJson(json);
+  }
+
   Future<void> updateProfile({
     required String accessToken,
     required UserProfileUpdate payload,

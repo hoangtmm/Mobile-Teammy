@@ -97,6 +97,7 @@ class ForumPostModel extends ForumPost {
 
     String? leaderName;
     String? leaderAvatarUrl;
+    String? leaderUserId;
     String? groupDescription;
     List<GroupMember> members = [];
 
@@ -107,6 +108,7 @@ class ForumPostModel extends ForumPost {
       // Lấy tên và avatar leader từ group.leader
       final leaderData = groupData['leader'];
       if (leaderData is Map<String, dynamic>) {
+        leaderUserId = leaderData['userId']?.toString();
         leaderName = leaderData['displayName'] as String?;
         leaderAvatarUrl = leaderData['avatarUrl'] as String?;
       }
@@ -191,7 +193,7 @@ class ForumPostModel extends ForumPost {
       groupId: json['groupId']?.toString(),
       groupName: groupName,
       groupDescription: groupDescription,
-      authorId: json['ownerId']?.toString() ?? json['userId']?.toString(),
+      authorId: leaderUserId ?? json['ownerId']?.toString() ?? json['userId']?.toString(),
       authorName:
           leaderName ??
           json['ownerName'] as String? ??
