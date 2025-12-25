@@ -91,6 +91,7 @@ class _ChatPageState extends State<ChatPage> {
       });
       
       // Join all conversations to receive realtime updates
+      print('[ChatPage] Loaded ${uniqueItems.length} conversations');
       _joinAllConversations(uniqueItems);
     } catch (error) {
       if (!mounted) return;
@@ -103,19 +104,28 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _joinAllConversations(List<ChatConversation> conversations) async {
     try {
+      print('[ChatPage] Joining ${conversations.length} conversations...');
       // Ensure hub connection is established first
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 1000));
       
       for (final conv in conversations) {
         if (conv.isGroup && conv.groupId?.isNotEmpty == true) {
-          await _hubService.joinGroup(conv.groupId!).catchError((e) {
+          print('[ChatPage] Joining group: ${conv.groupId}');
+          _hubService.joinGroup(conv.groupId!).catchError((e) {
+            print('[ChatPage] Error joining group: $e');
           });
         } else {
+          print('[ChatPage] Joining session: ${conv.sessionId}');
           _hubService.joinSession(conv.sessionId).catchError((e) {
+            print('[ChatPage] Error joining session: $e');
           });
         }
+        // Small delay between joins
+        await Future.delayed(const Duration(milliseconds: 100));
       }
+      print('[ChatPage] Finished joining all conversations');
     } catch (e) {
+      print('[ChatPage] Error in _joinAllConversations: $e');
     }
   }
 

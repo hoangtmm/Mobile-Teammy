@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:signalr_netcore/signalr_client.dart';
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../domain/entities/chat_message.dart';
 import '../models/chat_message_model.dart';
 class ChatHubService {
@@ -186,7 +187,19 @@ class ChatHubService {
       currentUserId: currentUserId,
       fallbackSessionId: _activeConversationId(),
     );
+    print('[HUB] Received message from ${message.senderName}: ${message.content}');
     _messageController.add(message);
+    
+    // Show notification if message is from another user
+    if (message.senderId != currentUserId) {
+      print('[HUB] Showing notification for message from ${message.senderName}');
+      NotificationService().showMessageNotification(
+        title: message.senderName,
+        body: message.content,
+        sessionId: message.sessionId,
+        senderName: message.senderName,
+      );
+    }
   }
 
   void _onMessageUpdated(List<Object?>? arguments) {

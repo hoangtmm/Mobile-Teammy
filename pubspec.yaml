@@ -17,6 +17,7 @@ dependencies:
   feather_icons: ^1.2.0
   flutter_launcher_icons: ^0.14.4
   file_picker: ^8.0.3
+  flutter_local_notifications: ^17.0.0
 
 dev_dependencies:
   flutter_test:
