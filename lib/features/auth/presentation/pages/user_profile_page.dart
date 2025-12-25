@@ -116,7 +116,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
         otherUserId: _profile!.userId,
       );
 
-      if (!mounted || conversation == null) return;
+      if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => ChatDetailPage(

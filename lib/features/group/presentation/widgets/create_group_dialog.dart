@@ -33,7 +33,7 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
   final _maxMembersCtrl = TextEditingController(text: '5');
   
   List<Skill> _allSkills = [];
-  Set<String> _selectedSkillIds = {};
+  final Set<String> _selectedSkillIds = {};
   String? _selectedCategory; // null = All
   
   bool _loading = true;

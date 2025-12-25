@@ -3,6 +3,7 @@ import '../../domain/entities/group_invitation.dart';
 import '../../domain/entities/group_member.dart';
 import '../../domain/entities/major.dart';
 import '../../domain/entities/skill.dart';
+import '../../domain/entities/tracking_scores.dart';
 import '../../domain/repositories/group_repository.dart';
 import '../datasources/group_remote_data_source.dart';
 
@@ -22,6 +23,28 @@ class GroupRepositoryImpl implements GroupRepository {
     String groupId,
   ) async {
     return await remoteDataSource.fetchGroupTracking(accessToken, groupId);
+  }
+
+  @override
+  Future<TrackingScores> fetchTrackingScores(
+    String accessToken,
+    String groupId, {
+    String? from,
+    String? to,
+    int? high,
+    int? medium,
+    int? low,
+  }) async {
+    final model = await remoteDataSource.fetchTrackingScores(
+      accessToken,
+      groupId,
+      from: from,
+      to: to,
+      high: high,
+      medium: medium,
+      low: low,
+    );
+    return model.toEntity();
   }
 
   @override

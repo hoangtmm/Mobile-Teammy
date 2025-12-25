@@ -546,7 +546,7 @@ class _DetailHeader extends StatelessWidget {
         .toList();
 
     final statusText = typingUserIds.isNotEmpty
-        ? typingNames.join(', ') + ' ' + _statusText(language, 'đang nhập...', 'typing...')
+        ? '${typingNames.join(', ')} ${_statusText(language, 'đang nhập...', 'typing...')}'
         : isTyping
         ? _statusText(language, 'Đang nhập...', 'Typing...')
         : isOnline

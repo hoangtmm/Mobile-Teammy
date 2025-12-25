@@ -13,11 +13,11 @@ class GroupPageController extends ChangeNotifier {
 
   List<Group> _groups = [];
   List<GroupInvitation> _invitations = [];
-  List<GroupInvitation> _pendingInvitations = [];
+  final List<GroupInvitation> _pendingInvitations = [];
   bool _loading = true;
   bool _invitationsLoading = false;
   String? _error;
-  Map<String, int?> _groupProgress = {};
+  final Map<String, int?> _groupProgress = {};
   int _selectedTabIndex = 0;
 
   // Getters
