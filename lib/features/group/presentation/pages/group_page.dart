@@ -1,13 +1,18 @@
 import 'package:feather_icons/feather_icons.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/api_constants.dart';
 import '../../../../core/localization/app_language.dart';
 import '../../../auth/domain/entities/auth_session.dart';
+import '../../../group/data/datasources/group_remote_data_source.dart';
+import '../../../group/data/repositories/group_repository_impl.dart';
+import '../../../group/presentation/pages/contribute_score_page.dart';
+import '../../../group/presentation/pages/group_detail_page.dart';
+import '../../../timeline/presentation/widgets/navigation_drawer_widget.dart';
 import '../../domain/entities/group_invitation.dart';
 import '../controllers/group_page_controller.dart';
 import '../widgets/create_group_dialog.dart';
 import '../widgets/group_card.dart';
-import 'group_detail_page.dart';
 
 class GroupPage extends StatefulWidget {
   const GroupPage({super.key, required this.session, required this.language});
@@ -22,6 +27,8 @@ class GroupPage extends StatefulWidget {
 class _GroupPageState extends State<GroupPage> {
   late final GroupPageController _controller;
   int _invitationTabIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  int _selectedDrawerIndex = 0;
 
   @override
   void initState() {
@@ -38,6 +45,68 @@ class _GroupPageState extends State<GroupPage> {
 
   String _translate(String vi, String en) =>
       widget.language == AppLanguage.vi ? vi : en;
+
+  Future<void> _handleDrawerNavigation(int index) async {
+    switch (index) {
+      case 0: // Overview
+        try {
+          final repository = GroupRepositoryImpl(
+            remoteDataSource: GroupRemoteDataSource(baseUrl: kApiBaseUrl),
+          );
+          final groups = await repository.fetchMyGroups(widget.session.accessToken);
+          if (groups.isNotEmpty && mounted) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => GroupDetailPage(
+                  groupId: groups.first.id,
+                  session: widget.session,
+                  language: widget.language,
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: $e')),
+            );
+          }
+        }
+        break;
+      case 1: // Contribute Score
+        try {
+          final repository = GroupRepositoryImpl(
+            remoteDataSource: GroupRemoteDataSource(baseUrl: kApiBaseUrl),
+          );
+          final groups = await repository.fetchMyGroups(widget.session.accessToken);
+          if (groups.isNotEmpty && mounted) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ContributeScorePage(
+                  groupId: groups.first.id,
+                  session: widget.session,
+                  language: widget.language,
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: $e')),
+            );
+          }
+        }
+        break;
+      case 2: // Feedback
+        break;
+      case 3: // Posts
+        // Navigate to Forum - handled by MainPage
+        break;
+      case 4: // Files
+        break;
+    }
+  }
 
   void _showCreateGroupDialog() {
     if (_controller.groups.isNotEmpty) {
@@ -222,9 +291,23 @@ class _GroupPageState extends State<GroupPage> {
           );
         }
 
-        return RefreshIndicator(
-          onRefresh: _controller.loadGroups,
-          child: _buildGroupPageContent(),
+        return Scaffold(
+          key: _scaffoldKey,
+          drawer: NavigationDrawerWidget(
+            selectedIndex: _selectedDrawerIndex,
+            onItemSelected: (index) {
+              setState(() {
+                _selectedDrawerIndex = index;
+              });
+              Navigator.of(context).pop();
+              _handleDrawerNavigation(index);
+            },
+            language: widget.language,
+          ),
+          body: RefreshIndicator(
+            onRefresh: _controller.loadGroups,
+            child: _buildGroupPageContent(),
+          ),
         );
       },
     );

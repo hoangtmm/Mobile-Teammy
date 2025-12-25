@@ -17,7 +17,7 @@ class TopicSelectionPage extends StatefulWidget {
   final Group? group;
 
   const TopicSelectionPage({
-    Key? key,
+    super.key,
     required this.topics,
     this.selectedTopic,
     required this.language,
@@ -25,7 +25,7 @@ class TopicSelectionPage extends StatefulWidget {
     this.accessToken,
     this.mentorUserId,
     this.group,
-  }) : super(key: key);
+  });
 
   @override
   State<TopicSelectionPage> createState() => _TopicSelectionPageState();

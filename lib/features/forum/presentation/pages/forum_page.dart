@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/localization/app_language.dart';
 import '../../../auth/domain/entities/auth_session.dart';
+import '../../../timeline/presentation/widgets/navigation_drawer_widget.dart';
 import '../../../group/data/datasources/group_remote_data_source.dart';
 import '../../../group/data/repositories/group_repository_impl.dart';
 import '../../../group/domain/repositories/group_repository.dart';
@@ -41,6 +42,8 @@ class _ForumPageState extends State<ForumPage> {
 
   bool _loading = true;
   String? _error;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  int _selectedDrawerIndex = 3;
 
   final List<ForumPost> _groupPosts = [];
   final List<ForumPost> _individualPosts = [];
@@ -1547,20 +1550,39 @@ class _ForumPageState extends State<ForumPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFFF3F4F6),
-      child: Column(
-        children: [
-          _buildHeaderSection(),
-          Expanded(
-            child: RefreshIndicator(
-              color: const Color(0xFF4CB065),
-              onRefresh: _loadAll,
-              child: _buildPostList(),
+    return Scaffold(
+      key: _scaffoldKey,
+      drawer: NavigationDrawerWidget(
+        selectedIndex: _selectedDrawerIndex,
+        onItemSelected: (index) {
+          setState(() {
+            _selectedDrawerIndex = index;
+          });
+          Navigator.of(context).pop();
+          _handleDrawerNavigation(index);
+        },
+        language: widget.language,
+      ),
+      body: Container(
+        color: const Color(0xFFF3F4F6),
+        child: Column(
+          children: [
+            _buildHeaderSection(),
+            Expanded(
+              child: RefreshIndicator(
+                color: const Color(0xFF4CB065),
+                onRefresh: _loadAll,
+                child: _buildPostList(),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  void _handleDrawerNavigation(int index) {
+    // Navigation handled by MainPage
+    // This is just a placeholder to close drawer
   }
 }

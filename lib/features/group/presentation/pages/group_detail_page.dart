@@ -11,6 +11,10 @@ import '../../domain/entities/group.dart';
 import '../../domain/entities/group_member.dart';
 import '../controllers/group_detail_controller.dart';
 import 'topic_selection_page.dart';
+import 'contribute_score_page.dart';
+import 'feedback_page.dart';
+import 'group_posts_page.dart';
+import 'group_files_page.dart';
 import '../widgets/skill_tag.dart';
 
 class GroupDetailPage extends StatefulWidget {
@@ -32,6 +36,9 @@ class GroupDetailPage extends StatefulWidget {
 class _GroupDetailPageState extends State<GroupDetailPage> {
   late GroupDetailController _controller;
   bool _controllerInitialized = false;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  int _selectedDrawerIndex = 0;
+  bool _activatingGroup = false;
 
   @override
   void initState() {
@@ -118,19 +125,85 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
 
     final group = _controller.group!;
     final isLeader = group.role == 'leader';
+    final canActivate = isLeader && group.status == 'recruiting';
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_translate('Chi tiết nhóm', 'Group Details')),
-        elevation: 0,
-        actions: isLeader
-            ? [
+      key: _scaffoldKey,
+      drawer: _NavigationDrawer(
+        selectedIndex: _selectedDrawerIndex,
+        onItemSelected: (index) {
+          setState(() {
+            _selectedDrawerIndex = index;
+          });
+          Navigator.of(context).pop();
+          _handleDrawerNavigation(index);
+        },
+        language: widget.language,
+      ),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 4,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            child: Row(
+              children: [
                 IconButton(
-                  icon: const Icon(FeatherIcons.edit),
-                  onPressed: () => _showEditGroup(),
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-              ]
-            : null,
+                IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.menu,
+                      color: Color(0xFF666666),
+                      size: 20,
+                    ),
+                  ),
+                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                ),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      _translate('Chi tiết nhóm', 'Group Details'),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1B2B57),
+                      ),
+                    ),
+                  ),
+                ),
+                if (isLeader)
+                  IconButton(
+                    icon: const Icon(FeatherIcons.edit),
+                    onPressed: () => _showEditGroup(),
+                  ),
+                if (!isLeader) const SizedBox(width: 48),
+              ],
+            ),
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -140,6 +213,34 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
             _GroupHeader(group: group, language: widget.language),
             const SizedBox(height: 20),
             _GroupInfoGrid(group: group, progress: _controller.groupProgress, language: widget.language),
+            if (canActivate) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _activatingGroup ? null : _confirmActivateGroup,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3B5FE5),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _activatingGroup
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text(_translate('Kích hoạt nhóm', 'Confirm Group')),
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
             _MentorSection(group: group, language: widget.language, session: widget.session),
             const SizedBox(height: 20),
@@ -190,18 +291,6 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
       );
     } catch (e) {
       if (!context.mounted) return;
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _translate(
-              'Lỗi tải danh sách chủ đề: $e',
-              'Error loading topics: $e',
-            ),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 
@@ -215,6 +304,139 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
         onGroupUpdated: () => _controller.loadGroupDetail(),
       ),
     );
+  }
+
+  Future<void> _confirmActivateGroup() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(
+          _translate('Xác nhận kích hoạt nhóm?', 'Confirm activate group?'),
+        ),
+        content: Text(
+          _translate(
+            'Khi kích hoạt, nhóm sẽ được khóa trong học kỳ này. Bạn có muốn tiếp tục?',
+            'Once activated, your group will be locked for this semester. Do you want to continue?',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(_translate('Hủy', 'Cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(_translate('Xác nhận', 'Confirm')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || _activatingGroup) return;
+
+    setState(() {
+      _activatingGroup = true;
+    });
+
+    try {
+      final dataSource = GroupRemoteDataSource(baseUrl: kApiBaseUrl);
+      final message = await dataSource.activateGroup(
+        widget.session.accessToken,
+        widget.groupId,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              message.contains('Need') ? Colors.orange : Colors.green,
+        ),
+      );
+      _controller.loadGroupDetail();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _activatingGroup = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleDrawerNavigation(int index) async {
+    // Handle navigation based on drawer item selection
+    switch (index) {
+      case 0: // Overview
+        // Already on Group Details page, just close drawer
+        break;
+      case 1: // Contribute Score
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ContributeScorePage(
+              groupId: widget.groupId,
+              session: widget.session,
+              language: widget.language,
+            ),
+          ),
+        );
+        if (!mounted) return;
+        setState(() {
+          _selectedDrawerIndex = 0;
+        });
+        break;
+      case 2: // Feedback
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => FeedbackPage(
+              groupId: widget.groupId,
+              session: widget.session,
+              language: widget.language,
+            ),
+          ),
+        );
+        if (!mounted) return;
+        setState(() {
+          _selectedDrawerIndex = 0;
+        });
+        break;
+      case 3: // Posts
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => GroupPostsPage(
+              groupId: widget.groupId,
+              session: widget.session,
+              language: widget.language,
+            ),
+          ),
+        );
+        if (!mounted) return;
+        setState(() {
+          _selectedDrawerIndex = 0;
+        });
+        break;
+      case 4: // Files
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => GroupFilesPage(
+              groupId: widget.groupId,
+              session: widget.session,
+              language: widget.language,
+            ),
+          ),
+        );
+        if (!mounted) return;
+        setState(() {
+          _selectedDrawerIndex = 0;
+        });
+        break;
+    }
   }
 }
 
@@ -547,7 +769,7 @@ class _TopicSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          if (isLeader)
+          if (isLeader && group.topic == null)
             Material(
               color: Colors.transparent,
               child: InkWell(
@@ -890,17 +1112,6 @@ class _TeamMembersSection extends StatelessWidget {
 
       print('[GROUP] Successfully kicked member');
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _translate(
-              'Đã xóa ${member.displayName} khỏi nhóm',
-              '${member.displayName} has been removed from the group',
-            ),
-          ),
-          backgroundColor: const Color(0xFF10B981),
-        ),
-      );
 
       // Reload page
       if (parentContext.mounted) {
@@ -918,17 +1129,6 @@ class _TeamMembersSection extends StatelessWidget {
       print('[GROUP] ERROR kicking member: $e');
       print('[GROUP] Error type: ${e.runtimeType}');
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _translate(
-              'Không thể xóa thành viên: $e',
-              'Failed to remove member: $e',
-            ),
-          ),
-          backgroundColor: const Color(0xFFEF4444),
-        ),
-      );
     }
   }
 
@@ -945,17 +1145,6 @@ class _TeamMembersSection extends StatelessWidget {
 
       print('[GROUP] Successfully transferred leadership');
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _translate(
-              'Đã chuyển quyền leader cho ${member.displayName}',
-              'Leadership transferred to ${member.displayName}',
-            ),
-          ),
-          backgroundColor: const Color(0xFF10B981),
-        ),
-      );
 
       // Reload page
       if (parentContext.mounted) {
@@ -973,17 +1162,6 @@ class _TeamMembersSection extends StatelessWidget {
       print('[GROUP] ERROR transferring leader: $e');
       print('[GROUP] Error type: ${e.runtimeType}');
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _translate(
-              'Không thể chuyển quyền leader: $e',
-              'Failed to transfer leadership: $e',
-            ),
-          ),
-          backgroundColor: const Color(0xFFEF4444),
-        ),
-      );
     }
   }
 
@@ -1001,12 +1179,6 @@ class _TeamMembersSection extends StatelessWidget {
       );
     } catch (e) {
       print('[GROUP DETAIL] Error opening user profile: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Lỗi: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 
@@ -1085,7 +1257,6 @@ class _InviteMembersDialogState extends State<_InviteMembersDialog> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _searching = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -1095,17 +1266,10 @@ class _InviteMembersDialogState extends State<_InviteMembersDialog> {
       await _dataSource.inviteUserToGroup(widget.session.accessToken, widget.groupId, userId);
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_translate('Mời thành công', 'Invited successfully')),
-          backgroundColor: Colors.green,
-        ),
-      );
       widget.onMemberAdded();
     } catch (e) {
       if (!mounted) return;
       setState(() => _inviting = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -1208,6 +1372,7 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
   List<Map<String, dynamic>> _availableSkills = [];
   bool _loading = true;
   bool _saving = false;
+  String? _warningMessage;
   String _selectedCategory = 'all'; // Track selected category for filtering
 
   @override
@@ -1238,9 +1403,6 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading skills: $e')),
-      );
       setState(() => _loading = false);
     }
   }
@@ -1279,9 +1441,6 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
       });
     } catch (e) {
       debugPrint('Error adding skill: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error adding skill: $e')),
-      );
     }
   }
 
@@ -1423,6 +1582,31 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
               ),
+              if (_warningMessage != null) ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFF59E0B)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFFF59E0B)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _warningMessage!,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF92400E), fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
 
               // Tech Stack Section
@@ -1448,7 +1632,7 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _translate('Công nghệ đã chọn', 'Your Selected Skills') + ' (${_selectedSkills.length})',
+                        '${_translate('Công nghệ đã chọn', 'Your Selected Skills')} (${_selectedSkills.length})',
                         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF212631)),
                       ),
                       const SizedBox(height: 8),
@@ -1602,7 +1786,10 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
   }
 
   Future<void> _saveChanges() async {
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _warningMessage = null;
+    });
     try {
       final name = _nameController.text.trim();
       final description = _descriptionController.text.trim();
@@ -1614,7 +1801,7 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
 
       // Validate inputs
       if (name.isEmpty) {
-        throw Exception(_translate('Tên nhóm không được để trống', 'Group name cannot be empty'));
+        throw Exception(_translate('Group name cannot be empty', 'Group name cannot be empty'));
       }
 
       // Call API to update group
@@ -1633,7 +1820,7 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_translate('Cập nhật thành công', 'Group updated successfully')),
+          content: Text(_translate('Group updated successfully', 'Group updated successfully')),
           backgroundColor: Colors.green,
         ),
       );
@@ -1641,14 +1828,156 @@ class _EditGroupDialogState extends State<_EditGroupDialog> {
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _saving = false);
       debugPrint('Save error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_translate('Lỗi: ', 'Error: ') + e.toString()),
-          backgroundColor: Colors.red,
-        ),
-      );
+      final message = e.toString().replaceFirst('Exception: ', '');
+      setState(() {
+        _saving = false;
+        _warningMessage = message;
+      });
     }
   }
 }
+
+// ============ NAVIGATION DRAWER ============
+class _NavigationDrawer extends StatelessWidget {
+  const _NavigationDrawer({
+    required this.selectedIndex,
+    required this.onItemSelected,
+    required this.language,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onItemSelected;
+  final AppLanguage language;
+
+  String _translate(String vi, String en) =>
+      language == AppLanguage.vi ? vi : en;
+
+  @override
+  Widget build(BuildContext context) {
+    final menuItems = [
+      _DrawerItem(
+        icon: Icons.dashboard_outlined,
+        labelVi: 'Tổng quan',
+        labelEn: 'Overview',
+      ),
+      _DrawerItem(
+        icon: Icons.people_outline,
+        labelVi: 'Điểm đóng góp',
+        labelEn: 'Contribute Score',
+      ),
+      _DrawerItem(
+        icon: Icons.feedback_outlined,
+        labelVi: 'Phản hồi',
+        labelEn: 'Feedback',
+      ),
+      _DrawerItem(
+        icon: Icons.article_outlined,
+        labelVi: 'Bài viết',
+        labelEn: 'Posts',
+      ),
+      _DrawerItem(
+        icon: Icons.folder_outlined,
+        labelVi: 'Tệp',
+        labelEn: 'Files',
+      ),
+    ];
+
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.85,
+      decoration: const BoxDecoration(
+        color: Color(0xFFF5F5F5),
+      ),
+      child: Column(
+        children: [
+          Container(
+            height: MediaQuery.of(context).padding.top,
+            color: const Color(0xFFF5F5F5),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: menuItems.length,
+              itemBuilder: (context, index) {
+                final item = menuItems[index];
+                final isSelected = index == selectedIndex;
+                
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFFE3F2FD) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Stack(
+                    children: [
+                      if (isSelected)
+                        Positioned(
+                          left: 0,
+                          top: 8,
+                          bottom: 8,
+                          child: Container(
+                            width: 4,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2196F3),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        leading: Icon(
+                          item.icon,
+                          color: isSelected
+                              ? const Color(0xFF2196F3)
+                              : const Color(0xFF666666),
+                          size: 24,
+                        ),
+                        title: Text(
+                          _translate(item.labelVi, item.labelEn),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                            color: isSelected
+                                ? const Color(0xFF2196F3)
+                                : const Color(0xFF1A1A1A),
+                          ),
+                        ),
+                        onTap: () => onItemSelected(index),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DrawerItem {
+  const _DrawerItem({
+    required this.icon,
+    required this.labelVi,
+    required this.labelEn,
+  });
+
+  final IconData icon;
+  final String labelVi;
+  final String labelEn;
+}
+
+
+
+
+
+
+
+
+
+
+

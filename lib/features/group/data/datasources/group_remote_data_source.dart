@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../domain/entities/profile_post_invitation.dart';
@@ -8,8 +9,12 @@ import '../../domain/entities/member_invitation.dart';
 import '../models/group_invitation_model.dart';
 import '../models/group_member_model.dart';
 import '../models/group_model.dart';
+import '../models/group_feedback_model.dart';
+import '../models/group_file_model.dart';
+import '../models/group_recruitment_post_model.dart';
 import '../models/major_model.dart';
 import '../models/skill_model.dart';
+import '../models/tracking_scores_model.dart';
 
 class GroupRemoteDataSource {
   final String baseUrl;
@@ -17,6 +22,32 @@ class GroupRemoteDataSource {
 
   GroupRemoteDataSource({required this.baseUrl, http.Client? httpClient})
     : _httpClient = httpClient ?? http.Client();
+
+  String _parseErrorMessage(http.Response response) {
+    final rawBody = response.body.trim();
+    final body = rawBody.isNotEmpty
+        ? rawBody
+        : utf8.decode(response.bodyBytes).trim();
+    if (body.isEmpty) {
+      return 'Request failed (Status: ${response.statusCode})';
+    }
+
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is String) {
+        return decoded;
+      }
+      if (decoded is Map<String, dynamic>) {
+        final message = decoded['message'] as String?;
+        final error = decoded['error'] as String?;
+        return message ?? error ?? body;
+      }
+    } catch (_) {
+      // Keep raw body when it's not JSON.
+    }
+
+    return body;
+  }
 
   /// Lấy danh sách nhóm của user từ /api/groups/my
   Future<List<GroupModel>> fetchMyGroups(String accessToken) async {
@@ -62,6 +93,223 @@ class GroupRemoteDataSource {
     }
 
     return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+  }
+
+  /// Lấy tracking scores của nhóm từ /api/groups/{groupId}/tracking/scores
+  Future<TrackingScoresModel> fetchTrackingScores(
+    String accessToken,
+    String groupId, {
+    String? from,
+    String? to,
+    int? high,
+    int? medium,
+    int? low,
+  }) async {
+    var uri = Uri.parse('$baseUrl${ApiPath.groupTrackingScores(groupId)}');
+    
+    final queryParams = <String, String>{};
+    if (from != null) queryParams['From'] = from;
+    if (to != null) queryParams['To'] = to;
+    if (high != null) queryParams['High'] = high.toString();
+    if (medium != null) queryParams['Medium'] = medium.toString();
+    if (low != null) queryParams['Low'] = low.toString();
+    
+    if (queryParams.isNotEmpty) {
+      uri = uri.replace(queryParameters: queryParams);
+    }
+
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch tracking scores');
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    return TrackingScoresModel.fromJson(decoded);
+  }
+
+  /// Lay danh sach feedback cua nhom /api/groups/{groupId}/feedback
+  Future<GroupFeedbackResponseModel> fetchGroupFeedback(
+    String accessToken,
+    String groupId, {
+    required int page,
+    required int pageSize,
+    String? status,
+  }) async {
+    var uri = Uri.parse('$baseUrl${ApiPath.groupFeedback(groupId)}');
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'pageSize': pageSize.toString(),
+    };
+    if (status != null && status.isNotEmpty) {
+      queryParams['status'] = status;
+    }
+    uri = uri.replace(queryParameters: queryParams);
+
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_parseErrorMessage(response));
+    }
+
+    final decoded =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    return GroupFeedbackResponseModel.fromJson(decoded);
+  }
+
+  /// Update feedback status /api/groups/{groupId}/feedback/{feedbackId}/status
+  Future<void> updateGroupFeedbackStatus(
+    String accessToken,
+    String groupId,
+    String feedbackId, {
+    required String status,
+    String? note,
+  }) async {
+    final uri =
+        Uri.parse('$baseUrl${ApiPath.groupFeedbackStatus(groupId, feedbackId)}');
+    final body = jsonEncode({
+      'status': status,
+      if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+    });
+
+    final response = await _httpClient.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+        'accept': 'application/json',
+      },
+      body: body,
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception(_parseErrorMessage(response));
+    }
+  }
+
+  /// Lay danh sach bai dang tuyen cua nhom /api/recruitment-posts/group/{groupId}
+  Future<List<GroupRecruitmentPostModel>> fetchGroupRecruitmentPosts(
+    String accessToken,
+    String groupId,
+  ) async {
+    final uri =
+        Uri.parse('$baseUrl${ApiPath.recruitmentPostsByGroup(groupId)}');
+
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_parseErrorMessage(response));
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    if (decoded is! List) return const [];
+
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(GroupRecruitmentPostModel.fromJson)
+        .toList();
+  }
+
+  /// Lay danh sach file cua nhom /api/groups/{groupId}/board/files
+  Future<List<GroupFileModel>> fetchGroupFiles(
+    String accessToken,
+    String groupId,
+  ) async {
+    final uri = Uri.parse('$baseUrl${ApiPath.boardFiles(groupId)}');
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(_parseErrorMessage(response));
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    if (decoded is! List) return const [];
+
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(GroupFileModel.fromJson)
+        .toList();
+  }
+
+  /// Upload file cho nhom /api/groups/{groupId}/board/files/upload
+  Future<GroupFileModel> uploadGroupFile(
+    String accessToken,
+    String groupId, {
+    required List<int> bytes,
+    required String fileName,
+    String? description,
+    String? mimeType,
+  }) async {
+    final uri = Uri.parse('$baseUrl${ApiPath.boardUploadFile(groupId)}');
+    final multipartRequest = http.MultipartRequest('POST', uri)
+      ..headers.addAll({
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      })
+      ..fields['description'] = description ?? ''
+      ..files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          bytes,
+          filename: fileName,
+          contentType: MediaType.parse(mimeType ?? 'application/octet-stream'),
+        ),
+      );
+
+    final streamedResponse = await _httpClient.send(multipartRequest);
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(_parseErrorMessage(response));
+    }
+
+    final decoded =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    return GroupFileModel.fromJson(decoded);
+  }
+
+  /// Delete file /api/groups/{groupId}/board/files/{fileId}
+  Future<void> deleteGroupFile(
+    String accessToken,
+    String groupId,
+    String fileId,
+  ) async {
+    final uri = Uri.parse('$baseUrl${ApiPath.boardFile(groupId, fileId)}');
+    final response = await _httpClient.delete(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception(_parseErrorMessage(response));
+    }
   }
 
   /// Lấy danh sách majors từ /api/majors
@@ -152,7 +400,7 @@ class GroupRemoteDataSource {
     );
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Failed to create group: ${response.body}');
+      throw Exception(_parseErrorMessage(response));
     }
 
     final decoded =
@@ -325,7 +573,7 @@ class GroupRemoteDataSource {
       headers: {
         'Authorization': 'Bearer $accessToken',
         'Content-Type': 'application/json',
-        'accept': 'application/json',
+        'accept': 'application/json, text/plain, */*',
       },
       body: jsonEncode(updateData),
     );
@@ -337,25 +585,39 @@ class GroupRemoteDataSource {
     }
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      try {
-        final decoded =
-            jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-        final message =
-            decoded['message'] as String? ?? decoded['error'] as String?;
-        throw Exception(message ?? 'Failed to update group');
-      } catch (e) {
-        if (e is Exception && e.toString().contains('message')) {
-          rethrow;
-        }
-        throw Exception(
-          'Failed to update group (Status: ${response.statusCode})',
-        );
-      }
+      throw Exception(_parseErrorMessage(response));
     }
 
     return GroupModel.fromJson(
       jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>,
     );
+  }
+
+  /// Kich hoat nhom /api/groups/{groupId}/activate
+  Future<String> activateGroup(
+    String accessToken,
+    String groupId,
+  ) async {
+    final uri = Uri.parse('$baseUrl${ApiPath.groupActivate(groupId)}');
+
+    final response = await _httpClient.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      final body = utf8.decode(response.bodyBytes).trim();
+      return body.isNotEmpty ? _parseErrorMessage(response) : 'Group activated';
+    }
+
+    if (response.statusCode == 409) {
+      return _parseErrorMessage(response);
+    }
+
+    throw Exception(_parseErrorMessage(response));
   }
 
   /// Lấy danh sách lời mời từ profile posts

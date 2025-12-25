@@ -14,12 +14,15 @@ import '../../../forum/presentation/pages/forum_page.dart';
 import '../../../tasks/presentation/pages/tasks_page.dart';
 import '../../../group/presentation/pages/group_page.dart';
 import '../../../group/presentation/pages/group_invitations_page.dart';
+import '../../../group/presentation/pages/contribute_score_page.dart';
+import '../../../group/presentation/pages/group_detail_page.dart';
 import '../../../group/data/services/group_invitation_service.dart';
 import '../../../group/data/datasources/invitation_remote_data_source.dart';
+import '../../../group/data/datasources/group_remote_data_source.dart';
 import '../../../group/data/repositories/invitation_repository.dart';
+import '../../../group/data/repositories/group_repository_impl.dart';
 import '../../../onboarding/presentation/pages/onboarding_page.dart';
 import 'account_settings_page.dart';
-
 class MainPage extends StatefulWidget {
   const MainPage({
     super.key,
@@ -46,6 +49,8 @@ class _MainPageState extends State<MainPage> {
   double? _dragStartX;
   bool _isUserSheetOpen = false;
   int _pendingInvitationsCount = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  int _selectedDrawerIndex = 0;
 
   final _tabs = const [
     _BottomTab(
@@ -129,10 +134,10 @@ class _MainPageState extends State<MainPage> {
           _showGroupInvitationNotification(invitation);
         }
       }, onError: (error) {
-        // Error in invitation stream
+
       });
     }).catchError((error) {
-      // Failed to connect GroupInvitationService
+
     });
   }
 
@@ -273,6 +278,99 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
+  Future<void> _handleDrawerNavigation(int index) async {
+    // Handle navigation based on drawer item selection
+    switch (index) {
+      case 0: // Overview
+        // Navigate to Group Details
+        try {
+          final repository = GroupRepositoryImpl(
+            remoteDataSource: GroupRemoteDataSource(baseUrl: kApiBaseUrl),
+          );
+          final groups = await repository.fetchMyGroups(widget.session.accessToken);
+          if (groups.isNotEmpty && mounted) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => GroupDetailPage(
+                  groupId: groups.first.id,
+                  session: widget.session,
+                  language: _language,
+                ),
+              ),
+            );
+          } else if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  _translate(
+                    'Bạn chưa có nhóm nào',
+                    'You don\'t have any groups',
+                  ),
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: $e'),
+              ),
+            );
+          }
+        }
+        break;
+      case 1: // Contribute Score
+        // Get first group ID
+        try {
+          final repository = GroupRepositoryImpl(
+            remoteDataSource: GroupRemoteDataSource(baseUrl: kApiBaseUrl),
+          );
+          final groups = await repository.fetchMyGroups(widget.session.accessToken);
+          if (groups.isNotEmpty && mounted) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ContributeScorePage(
+                  groupId: groups.first.id,
+                  session: widget.session,
+                  language: _language,
+                ),
+              ),
+            );
+          } else if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  _translate(
+                    'Bạn chưa có nhóm nào',
+                    'You don\'t have any groups',
+                  ),
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: $e'),
+              ),
+            );
+          }
+        }
+        break;
+      case 2: // Feedback
+        // Navigate to feedback page
+        break;
+      case 3: // Posts
+        setState(() => _selectedIndex = 2); // Navigate to Forum
+        break;
+      case 4: // Files
+        // Navigate to files page
+        break;
+    }
+  }
+
   String _translate(String vi, String en) =>
       _language == AppLanguage.vi ? vi : en;
 
@@ -324,7 +422,20 @@ class _MainPageState extends State<MainPage> {
         },
         onHorizontalDragEnd: (_) => _dragStartX = null,
         child: Scaffold(
+          key: _scaffoldKey,
           backgroundColor: const Color(0xFFF7F7F7),
+          drawer: _NavigationDrawer(
+            selectedIndex: _selectedDrawerIndex,
+            onItemSelected: (index) {
+              setState(() {
+                _selectedDrawerIndex = index;
+              });
+              Navigator.of(context).pop();
+              // Handle navigation based on selected item
+              _handleDrawerNavigation(index);
+            },
+            language: _language,
+          ),
           body: Column(
             children: [
               if (_selectedIndex != 3) ...[
@@ -396,11 +507,14 @@ class _MainPageState extends State<MainPage> {
                                 : FontWeight.w400,
                             color: color,
                           ),
-                        );
-                      }),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
+                  );
+                }),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -442,24 +556,28 @@ class _AppBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            GestureDetector(
-              onTap: isLoading ? null : onAvatarTap,
-              child: CircleAvatar(
-                radius: 20,
-                backgroundColor: const Color(0xFFE4E7EC),
-                backgroundImage: profile?.avatarUrl != null
-                    ? NetworkImage(profile!.avatarUrl!)
-                    : null,
-                child: profile?.avatarUrl == null
-                    ? Text(
-                        initials,
-                        style: const TextStyle(
-                          color: Color(0xFF39476A),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      )
-                    : null,
-              ),
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: isLoading ? null : onAvatarTap,
+                  child: CircleAvatar(
+                    radius: 20,
+                    backgroundColor: const Color(0xFFE4E7EC),
+                    backgroundImage: profile?.avatarUrl != null
+                        ? NetworkImage(profile!.avatarUrl!)
+                        : null,
+                    child: profile?.avatarUrl == null
+                        ? Text(
+                            initials,
+                            style: const TextStyle(
+                              color: Color(0xFF39476A),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+              ],
             ),
             Text(
               title,
@@ -860,6 +978,138 @@ class _SheetItemData {
 
 class _BottomTab {
   const _BottomTab({
+    required this.icon,
+    required this.labelVi,
+    required this.labelEn,
+  });
+
+  final IconData icon;
+  final String labelVi;
+  final String labelEn;
+}
+
+class _NavigationDrawer extends StatelessWidget {
+  const _NavigationDrawer({
+    required this.selectedIndex,
+    required this.onItemSelected,
+    required this.language,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onItemSelected;
+  final AppLanguage language;
+
+  String _translate(String vi, String en) =>
+      language == AppLanguage.vi ? vi : en;
+
+  @override
+  Widget build(BuildContext context) {
+    final menuItems = [
+      _DrawerItem(
+        icon: Icons.dashboard_outlined,
+        labelVi: 'Tổng quan',
+        labelEn: 'Overview',
+      ),
+      _DrawerItem(
+        icon: Icons.people_outline,
+        labelVi: 'Điểm đóng góp',
+        labelEn: 'Contribute Score',
+      ),
+      _DrawerItem(
+        icon: Icons.feedback_outlined,
+        labelVi: 'Phản hồi',
+        labelEn: 'Feedback',
+      ),
+      _DrawerItem(
+        icon: Icons.article_outlined,
+        labelVi: 'Bài viết',
+        labelEn: 'Posts',
+      ),
+      _DrawerItem(
+        icon: Icons.folder_outlined,
+        labelVi: 'Tệp',
+        labelEn: 'Files',
+      ),
+    ];
+
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.85,
+      decoration: const BoxDecoration(
+        color: Color(0xFFF5F5F5),
+      ),
+      child: Column(
+        children: [
+          Container(
+            height: MediaQuery.of(context).padding.top,
+            color: const Color(0xFFF5F5F5),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: menuItems.length,
+              itemBuilder: (context, index) {
+                final item = menuItems[index];
+                final isSelected = index == selectedIndex;
+                
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFFE3F2FD) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Stack(
+                    children: [
+                      if (isSelected)
+                        Positioned(
+                          left: 0,
+                          top: 8,
+                          bottom: 8,
+                          child: Container(
+                            width: 4,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2196F3),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        leading: Icon(
+                          item.icon,
+                          color: isSelected
+                              ? const Color(0xFF2196F3)
+                              : const Color(0xFF666666),
+                          size: 24,
+                        ),
+                        title: Text(
+                          _translate(item.labelVi, item.labelEn),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                            color: isSelected
+                                ? const Color(0xFF2196F3)
+                                : const Color(0xFF1A1A1A),
+                          ),
+                        ),
+                        onTap: () => onItemSelected(index),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DrawerItem {
+  const _DrawerItem({
     required this.icon,
     required this.labelVi,
     required this.labelEn,

@@ -243,7 +243,7 @@ class _LoginCard extends StatelessWidget {
         
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: selectedCampus,
+            initialValue: selectedCampus,
             items: campuses
                 .map(
                   (campus) => DropdownMenuItem<String>(
