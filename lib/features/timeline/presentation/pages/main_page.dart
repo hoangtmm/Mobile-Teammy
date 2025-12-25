@@ -128,10 +128,10 @@ class _MainPageState extends State<MainPage> {
           _showGroupInvitationNotification(invitation);
         }
       }, onError: (error) {
-        // Error in invitation stream
+
       });
     }).catchError((error) {
-      // Failed to connect GroupInvitationService
+
     });
   }
 
