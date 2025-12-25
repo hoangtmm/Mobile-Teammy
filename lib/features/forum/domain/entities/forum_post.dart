@@ -14,6 +14,7 @@ class ForumPost {
     this.skills = const [],
     this.createdAt,
     this.expiresAt,
+    this.status,
     this.hasApplied = false,
     this.myApplicationStatus,
     this.applicationsCount = 0,
@@ -54,6 +55,7 @@ class ForumPost {
 
   final DateTime? createdAt;
   final DateTime? expiresAt;
+  final String? status;
 
   /// User hiện tại đã apply bài này chưa
   final bool hasApplied;

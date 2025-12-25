@@ -19,6 +19,14 @@ class ForumRemoteDataSource {
   static const String _recruitmentPostsPath = '/api/recruitment-posts';
   static const String _personalPostsPath = '/api/profile-posts';
   static const String _membershipPath = '/api/groups/membership';
+  static const String _aiRecruitmentSuggestionsPath =
+      '/api/ai/recruitment-post-suggestions';
+  static const String _aiProfileSuggestionsPath =
+      '/api/ai/profile-post-suggestions';
+  static const String _aiGenerateGroupPostPath =
+      '/api/ai-gateway/generate-post/group';
+  static const String _aiGeneratePersonalPostPath =
+      '/api/ai-gateway/generate-post/personal';
 
   Uri _buildUri(String path, [Map<String, String>? query]) {
     return Uri.parse('$baseUrl$path').replace(queryParameters: query);
@@ -40,6 +48,39 @@ class ForumRemoteDataSource {
       statusCode: response.statusCode,
       body: response.body,
     );
+  }
+
+  List<ForumPostModel> _decodePostList(dynamic decoded) {
+    if (decoded is List) {
+      return decoded
+          .whereType<Map<String, dynamic>>()
+          .map(ForumPostModel.fromJson)
+          .toList();
+    }
+    if (decoded is Map<String, dynamic>) {
+      final dynamic data =
+          decoded['data'] ?? decoded['items'] ?? decoded['posts'];
+      if (data is List) {
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(ForumPostModel.fromJson)
+            .toList();
+      }
+    }
+    return const [];
+  }
+
+  List<Map<String, dynamic>> _decodeSuggestionList(dynamic decoded) {
+    if (decoded is Map<String, dynamic>) {
+      final dynamic data = decoded['data'] ?? decoded['items'];
+      if (data is List) {
+        return data.whereType<Map<String, dynamic>>().toList();
+      }
+    }
+    if (decoded is List) {
+      return decoded.whereType<Map<String, dynamic>>().toList();
+    }
+    return const [];
   }
 
   Future<ForumMembershipModel?> fetchMembership(String accessToken) async {
@@ -90,12 +131,7 @@ class ForumRemoteDataSource {
 
     final decoded = jsonDecode(utf8.decode(response.bodyBytes));
 
-    if (decoded is! List) return const [];
-
-    return decoded
-        .whereType<Map<String, dynamic>>()
-        .map(ForumPostModel.fromJson)
-        .toList();
+    return _decodePostList(decoded);
   }
 
   Future<List<ForumPostModel>> fetchPersonalPosts(String accessToken) async {
@@ -108,12 +144,7 @@ class ForumRemoteDataSource {
 
     final decoded = jsonDecode(utf8.decode(response.bodyBytes));
 
-    if (decoded is! List) return const [];
-
-    return decoded
-        .whereType<Map<String, dynamic>>()
-        .map(ForumPostModel.fromJson)
-        .toList();
+    return _decodePostList(decoded);
   }
 
   Future<ForumPostModel> createRecruitmentPost(
@@ -241,5 +272,104 @@ class ForumRemoteDataSource {
     if (decoded is! List) return const [];
 
     return decoded.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchRecruitmentSuggestions(
+    String accessToken, {
+    required String majorId,
+    int? limit,
+  }) async {
+    final uri = _buildUri(_aiRecruitmentSuggestionsPath);
+    final body = <String, dynamic>{'majorId': majorId};
+    if (limit != null) {
+      body['limit'] = limit;
+    }
+
+    final response = await _httpClient.post(
+      uri,
+      headers: _headers(accessToken, jsonBody: true),
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwApiError(response);
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    return _decodeSuggestionList(decoded);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchProfileSuggestions(
+    String accessToken, {
+    required String groupId,
+    int? limit,
+  }) async {
+    final uri = _buildUri(_aiProfileSuggestionsPath);
+    final body = <String, dynamic>{'groupId': groupId};
+    if (limit != null) {
+      body['limit'] = limit;
+    }
+
+    final response = await _httpClient.post(
+      uri,
+      headers: _headers(accessToken, jsonBody: true),
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwApiError(response);
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    return _decodeSuggestionList(decoded);
+  }
+
+  Future<Map<String, dynamic>> generateRecruitmentPostDraft(
+    String accessToken, {
+    required String groupId,
+  }) async {
+    final uri = _buildUri('$_aiGenerateGroupPostPath/$groupId');
+    final response = await _httpClient.post(
+      uri,
+      headers: _headers(accessToken),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwApiError(response);
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    if (decoded is Map<String, dynamic>) {
+      final draft = decoded['draft'];
+      if (draft is Map<String, dynamic>) {
+        return draft;
+      }
+      return decoded;
+    }
+    return const {};
+  }
+
+  Future<Map<String, dynamic>> generatePersonalPostDraft(
+    String accessToken,
+  ) async {
+    final uri = _buildUri(_aiGeneratePersonalPostPath);
+    final response = await _httpClient.post(
+      uri,
+      headers: _headers(accessToken),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwApiError(response);
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    if (decoded is Map<String, dynamic>) {
+      final draft = decoded['draft'];
+      if (draft is Map<String, dynamic>) {
+        return draft;
+      }
+      return decoded;
+    }
+    return const {};
   }
 }

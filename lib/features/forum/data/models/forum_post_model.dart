@@ -16,6 +16,7 @@ class ForumPostModel extends ForumPost {
     super.skills = const [],
     super.createdAt,
     super.expiresAt,
+    super.status,
     super.hasApplied = false,
     super.myApplicationStatus,
     super.applicationsCount = 0,
@@ -208,6 +209,7 @@ class ForumPostModel extends ForumPost {
       expiresAt:
           parseDate(json['expiresAt']) ??
           parseDate(json['applicationDeadline']),
+      status: json['status']?.toString(),
       hasApplied: json['hasApplied'] as bool? ?? false,
       myApplicationStatus: json['myApplicationStatus'] as String?,
       applicationsCount: json['applicationsCount'] is int

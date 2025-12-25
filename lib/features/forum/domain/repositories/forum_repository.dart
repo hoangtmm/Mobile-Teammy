@@ -1,5 +1,6 @@
 import '../entities/forum_membership.dart';
 import '../entities/forum_post.dart';
+import '../entities/forum_post_suggestion.dart';
 
 abstract class ForumRepository {
   /// Lấy membership hiện tại (để biết user có groupId không)
@@ -46,6 +47,31 @@ abstract class ForumRepository {
     String accessToken, {
     required String major,
   });
+
+  /// AI suggestions: recruitment posts for a major
+  Future<List<ForumPostSuggestion>> fetchRecruitmentSuggestions(
+    String accessToken, {
+    required String majorId,
+    int? limit,
+  });
+
+  /// AI suggestions: profile posts for a group
+  Future<List<ForumPostSuggestion>> fetchProfileSuggestions(
+    String accessToken, {
+    required String groupId,
+    int? limit,
+  });
+
+  /// AI generate draft for recruitment post by group
+  Future<Map<String, dynamic>> generateRecruitmentPostDraft(
+    String accessToken, {
+    required String groupId,
+  });
+
+  /// AI generate draft for personal post
+  Future<Map<String, dynamic>> generatePersonalPostDraft(
+    String accessToken,
+  );
 
   /// Fetch group details by groupId
   Future<Map<String, dynamic>?> fetchGroupDetails(

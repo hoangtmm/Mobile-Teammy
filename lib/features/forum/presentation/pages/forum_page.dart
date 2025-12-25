@@ -10,6 +10,7 @@ import '../../data/datasources/forum_remote_data_source.dart';
 import '../../data/repositories/forum_repository_impl.dart';
 import '../../domain/entities/forum_membership.dart';
 import '../../domain/entities/forum_post.dart';
+import '../../domain/entities/forum_post_suggestion.dart';
 import '../../domain/repositories/forum_repository.dart';
 import '../../../auth/data/datasources/user_remote_data_source.dart';
 import '../../../auth/domain/entities/user_profile.dart';
@@ -44,6 +45,8 @@ class _ForumPageState extends State<ForumPage> {
 
   final List<ForumPost> _groupPosts = [];
   final List<ForumPost> _individualPosts = [];
+  final List<ForumPostSuggestion> _suggestedGroupPosts = [];
+  final List<ForumPostSuggestion> _suggestedProfilePosts = [];
 
   final _searchController = TextEditingController();
 
@@ -84,10 +87,38 @@ class _ForumPageState extends State<ForumPage> {
 
     try {
       final token = widget.session.accessToken;
-      final membership = await _repository.fetchMembership(token);
-      final groups = await _repository.fetchRecruitmentPosts(token);
-      final individuals = await _repository.fetchPersonalPosts(token);
-      final profile = await _userDataSource.getProfile(token);
+      final membershipFuture = _repository.fetchMembership(token);
+      final groupsFuture = _repository.fetchRecruitmentPosts(token);
+      final individualsFuture = _repository.fetchPersonalPosts(token);
+      final profileFuture = _userDataSource.getProfile(token);
+
+      final membership = await membershipFuture;
+      final groups = await groupsFuture;
+      final individuals = await individualsFuture;
+      final profile = await profileFuture;
+
+      List<ForumPostSuggestion> suggestedGroups = const [];
+      List<ForumPostSuggestion> suggestedProfiles = const [];
+
+      if (profile?.majorId != null) {
+        try {
+          suggestedGroups = await _repository.fetchRecruitmentSuggestions(
+            token,
+            majorId: profile!.majorId!,
+            limit: 5,
+          );
+        } catch (_) {}
+      }
+
+      if (membership?.groupId != null) {
+        try {
+          suggestedProfiles = await _repository.fetchProfileSuggestions(
+            token,
+            groupId: membership!.groupId!,
+            limit: 5,
+          );
+        } catch (_) {}
+      }
 
       if (!mounted) return;
       setState(() {
@@ -99,6 +130,12 @@ class _ForumPageState extends State<ForumPage> {
         _individualPosts
           ..clear()
           ..addAll(individuals);
+        _suggestedGroupPosts
+          ..clear()
+          ..addAll(suggestedGroups);
+        _suggestedProfilePosts
+          ..clear()
+          ..addAll(suggestedProfiles);
         _loading = false;
       });
     } catch (e) {
@@ -112,10 +149,18 @@ class _ForumPageState extends State<ForumPage> {
 
   List<ForumPost> get _visiblePosts {
     final src = _tab == _ForumTab.groups ? _groupPosts : _individualPosts;
+    final openPosts = src.where((p) => !_isClosed(p)).toList(growable: false);
+    final suggestionIds = _currentSuggestions
+        .map((s) => s.post.id)
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final filteredPosts = openPosts
+        .where((p) => !suggestionIds.contains(p.id))
+        .toList(growable: false);
     final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return List.unmodifiable(src);
+    if (query.isEmpty) return List.unmodifiable(filteredPosts);
 
-    return src
+    return filteredPosts
         .where(
           (p) =>
               p.title.toLowerCase().contains(query) ||
@@ -123,6 +168,12 @@ class _ForumPageState extends State<ForumPage> {
               p.skills.any((s) => s.toLowerCase().contains(query)),
         )
         .toList(growable: false);
+  }
+
+  List<ForumPostSuggestion> get _currentSuggestions {
+    return _tab == _ForumTab.groups
+        ? _suggestedGroupPosts
+        : _suggestedProfilePosts;
   }
 
   String _formatDateShort(DateTime? date) {
@@ -160,6 +211,7 @@ class _ForumPageState extends State<ForumPage> {
   }
 
   bool _isClosed(ForumPost post) {
+    if ((post.status ?? '').toLowerCase() == 'closed') return true;
     if (post.expiresAt == null) return false;
     return post.expiresAt!.isBefore(DateTime.now());
   }
@@ -717,31 +769,6 @@ class _ForumPageState extends State<ForumPage> {
               ),
             ),
 
-            // position chip (Frontend)
-            if (primaryPosition != null) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5E9FF),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  primaryPosition,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF7C3AED),
-                  ),
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 16),
-
             const SizedBox(height: 8),
 
             // Skills + Major
@@ -906,25 +933,27 @@ class _ForumPageState extends State<ForumPage> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      statusLabel,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: statusColor,
+                  if (!closed) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        statusLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: statusColor,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
+                    const SizedBox(height: 6),
+                  ],
                   if (isGroup) ...[
                     Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1276,6 +1305,9 @@ class _ForumPageState extends State<ForumPage> {
 
   Widget _buildPostList() {
     final posts = _visiblePosts;
+    final suggestions = _currentSuggestions
+        .where((s) => !_isClosed(s.post))
+        .toList(growable: false);
 
     if (_loading) {
       return ListView(
@@ -1317,6 +1349,18 @@ class _ForumPageState extends State<ForumPage> {
     }
 
     if (posts.isEmpty) {
+      if (suggestions.isNotEmpty) {
+        return ListView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            _buildSuggestionsSection(suggestions),
+          ],
+        );
+      }
+
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
@@ -1343,12 +1387,652 @@ class _ForumPageState extends State<ForumPage> {
       );
     }
 
+    if (suggestions.isNotEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: [
+          _buildSuggestionsSection(suggestions),
+          const SizedBox(height: 8),
+          ...posts.map(_buildPostCard),
+        ],
+      );
+    }
+
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(
         parent: BouncingScrollPhysics(),
       ),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: posts.map(_buildPostCard).toList(),
+    );
+  }
+
+  Widget _buildSuggestionsSection(List<ForumPostSuggestion> suggestions) {
+    if (suggestions.isEmpty) return const SizedBox.shrink();
+
+    final title = _tab == _ForumTab.groups
+        ? _t('AI Suggested Groups', 'AI Suggested Groups')
+        : _t('AI Suggested Profiles', 'AI Suggested Profiles');
+    final subtitle = _tab == _ForumTab.groups
+        ? _t(
+            'Gợi ý phù hợp theo chuyên ngành của bạn',
+            'Suggestions tailored to your major',
+          )
+        : _t(
+            'Gợi ý hồ sơ phù hợp cho nhóm của bạn',
+            'Suggestions tailored to your group',
+          );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF6FF),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFBFDBFE)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.auto_awesome, color: Color(0xFF2563EB)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E3A8A),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF1D4ED8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...suggestions.map(_buildSuggestionCard),
+      ],
+    );
+  }
+
+  Widget _buildSuggestionCard(ForumPostSuggestion suggestion) {
+    final post = suggestion.post;
+    final isGroup = post.type == 'group_hiring';
+    final canApply = isGroup && !post.hasApplied && !(_membership?.hasGroup ?? false);
+    final canInvite = !isGroup && (_membership?.status == 'leader');
+    final closed = _isClosed(post);
+
+    final score = suggestion.scorePercent;
+    final majorName = (post.majorName ?? _t('Không rõ', 'Unknown'));
+    final desiredPosition = (suggestion.desiredPosition ??
+            post.positionNeeded ??
+            post.title)
+        .toString()
+        .trim();
+    final positions = (post.positionNeeded ?? '')
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    final dueText = post.expiresAt != null
+        ? _formatDateShort(post.expiresAt)
+        : '-';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  post.title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (score != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1FAE5),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '$score% Match',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF047857),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if ((post.authorName ?? '').isNotEmpty)
+                Text(
+                  post.authorName ?? '',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+              if ((post.authorName ?? '').isNotEmpty &&
+                  post.groupName != null &&
+                  post.groupName!.isNotEmpty)
+                const Icon(
+                  Icons.circle,
+                  size: 4,
+                  color: Color(0xFF9CA3AF),
+                ),
+              if (post.groupName != null && post.groupName!.isNotEmpty)
+                Text(
+                  post.groupName!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              if (post.createdAt != null) ...[
+                const Icon(
+                  Icons.circle,
+                  size: 4,
+                  color: Color(0xFF9CA3AF),
+                ),
+                const Icon(
+                  Icons.access_time,
+                  size: 14,
+                  color: Color(0xFF9CA3AF),
+                ),
+                Text(
+                  _formatDateShort(post.createdAt),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+              if (!closed)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE7F8ED),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    _t('open', 'open'),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF16A34A),
+                    ),
+                  ),
+                ),
+              if (isGroup)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.remove_red_eye_outlined,
+                      size: 14,
+                      color: Color(0xFF6B7280),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${post.applicationsCount} ${_t('Applications', 'Applications')}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+              if (!closed)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.event,
+                      size: 14,
+                      color: Color(0xFF6B7280),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${_t('Due', 'Due')}: $dueText',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            post.description,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF374151),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if ((suggestion.aiReason ?? '').isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.auto_awesome,
+                        size: 16,
+                        color: Color(0xFF2563EB),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _t('Vì sao gợi ý?', 'Why suggested?'),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1E3A8A),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    suggestion.aiReason ?? '',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF334155),
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (isGroup)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _t('Vị trí cần tuyển:', 'Positions Needed:'),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      if (positions.isEmpty)
+                        Text(
+                          _t('Chưa có', 'N/A'),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6B7280),
+                          ),
+                        )
+                      else
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: positions
+                              .map(
+                                (p) => Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    p,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF1D4ED8),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _t('Ngành:', 'Major:'),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      majorName,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _t('Role Needed:', 'Role Needed:'),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      if (desiredPosition.isEmpty)
+                        Text(
+                          _t('Chưa có', 'N/A'),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6B7280),
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            desiredPosition,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF1D4ED8),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _t('Ngành:', 'Major:'),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      majorName,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          if (!isGroup) ...[
+            const SizedBox(height: 12),
+            Text(
+              _t('Kỹ năng trùng:', 'Matching Skills:'),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF111827),
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (suggestion.matchingSkills.isEmpty)
+              Text(
+                _t('Chưa có', 'N/A'),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF6B7280),
+                ),
+              )
+            else
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: suggestion.matchingSkills
+                    .map(
+                      (s) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          s,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF1D4ED8),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+          ],
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              if (isGroup) ...[
+                const Icon(
+                  Icons.people_alt_outlined,
+                  size: 16,
+                  color: Color(0xFF6B7280),
+                ),
+                const SizedBox(width: 6),
+                if (post.currentMembers != null && post.maxMembers != null)
+                  Text(
+                    '${post.currentMembers}/${post.maxMembers} ${_t('members', 'members')}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+              ],
+              const Spacer(),
+              if (post.hasApplied && post.myApplicationStatus != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: post.myApplicationStatus == 'accepted'
+                        ? const Color(0xFF10B981).withOpacity(0.1)
+                        : post.myApplicationStatus == 'rejected'
+                        ? const Color(0xFFEF4444).withOpacity(0.1)
+                        : const Color(0xFFF59E0B).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    post.myApplicationStatus == 'accepted'
+                        ? _t('Đã chấp nhận', 'Accepted')
+                        : post.myApplicationStatus == 'rejected'
+                        ? _t('Đã từ chối', 'Rejected')
+                        : _t('Đang chờ', 'Pending'),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: post.myApplicationStatus == 'accepted'
+                          ? const Color(0xFF10B981)
+                          : post.myApplicationStatus == 'rejected'
+                          ? const Color(0xFFEF4444)
+                          : const Color(0xFFF59E0B),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              if (isGroup)
+                TextButton(
+                  onPressed: () => _openDetail(post),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    minimumSize: Size.zero,
+                  ),
+                  child: Text(
+                    _t('View Details', 'View Details'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              if (canApply)
+                ElevatedButton(
+                  onPressed: () => _showApplyModal(post),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF7A00),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    minimumSize: Size.zero,
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    _t('Apply Now', 'Apply Now'),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              if (canInvite && !(post.hasApplied && post.myApplicationStatus != null))
+                ElevatedButton(
+                  onPressed: () => _inviteProfilePost(post),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF7A00),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    minimumSize: Size.zero,
+                    elevation: 0,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.person_add_alt_1_outlined, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        _t('Invite to Group', 'Invite to Group'),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
