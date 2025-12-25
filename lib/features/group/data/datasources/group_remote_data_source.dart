@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../../core/constants/api_constants.dart';
+import '../../domain/entities/profile_post_invitation.dart';
+import '../../domain/entities/member_invitation.dart';
 import '../models/group_invitation_model.dart';
 import '../models/group_member_model.dart';
 import '../models/group_model.dart';
@@ -356,11 +358,69 @@ class GroupRemoteDataSource {
     );
   }
 
-  /// Lấy danh sách lời mời nhóm
+  /// Lấy danh sách lời mời từ profile posts
+  Future<List<ProfilePostInvitation>> fetchProfilePostInvitations(
+    String accessToken,
+  ) async {
+    final uri = Uri.parse('$baseUrl/api/profile-posts/my/invitations').replace(
+      queryParameters: {'status': 'pending'},
+    );
+
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch profile post invitations');
+    }
+
+    final decoded =
+        jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(ProfilePostInvitation.fromJson)
+        .toList();
+  }
+
+  /// Lấy danh sách lời mời thành viên
+  Future<List<MemberInvitation>> fetchMemberInvitations(
+    String accessToken,
+  ) async {
+    final uri = Uri.parse('$baseUrl/api/invitations').replace(
+      queryParameters: {'status': 'pending'},
+    );
+
+    final response = await _httpClient.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch member invitations');
+    }
+
+    final decoded =
+        jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(MemberInvitation.fromJson)
+        .toList();
+  }
+
+  /// Lấy danh sách lời mời nhóm (deprecated - use fetchMemberInvitations and fetchProfilePostInvitations)
   Future<List<GroupInvitationModel>> fetchInvitations(
     String accessToken,
   ) async {
-    final uri = Uri.parse('$baseUrl/api/group-invitations');
+    final uri = Uri.parse('$baseUrl${ApiPath.invitationsList}').replace(
+      queryParameters: {'status': 'pending'},
+    );
 
     final response = await _httpClient.get(
       uri,
@@ -475,9 +535,7 @@ class GroupRemoteDataSource {
         'Content-Type': 'application/json',
         'accept': 'application/json',
       },
-      body: jsonEncode({
-        'newLeaderUserId': newLeaderUserId,
-      }),
+      body: jsonEncode({'newLeaderUserId': newLeaderUserId}),
     );
 
     if (response.statusCode != 200 && response.statusCode != 204) {

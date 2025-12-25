@@ -203,6 +203,8 @@ class ChatRemoteDataSource {
     String type = 'text',
   }) async {
     final uri = Uri.parse('$baseUrl${ApiPath.chatSessionSend(sessionId)}');
+    final body = jsonEncode(<String, dynamic>{'content': content, 'type': type});
+    
     final response = await _httpClient.post(
       uri,
       headers: {
@@ -210,7 +212,34 @@ class ChatRemoteDataSource {
         'Content-Type': 'application/json',
         'accept': 'application/json',
       },
-      body: jsonEncode(<String, dynamic>{'content': content, 'type': type}),
+      body: body,
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AuthApiException(
+        statusCode: response.statusCode,
+        body: response.body,
+      );
+    }
+  }
+
+  Future<void> sendGroupMessage({
+    required String accessToken,
+    required String groupId,
+    required String content,
+    String type = 'text',
+  }) async {
+    final uri = Uri.parse('$baseUrl${ApiPath.groupChatMessages(groupId)}');
+    final body = jsonEncode(<String, dynamic>{'content': content, 'type': type});
+    
+    final response = await _httpClient.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+        'accept': 'application/json',
+      },
+      body: body,
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -246,5 +275,156 @@ class ChatRemoteDataSource {
     return decoded
         .whereType<Map<String, dynamic>>()
         .toList();
+  }
+
+  Future<ChatMessageModel> pinMessage({
+    required String accessToken,
+    required String sessionId,
+    required String messageId,
+    required String currentUserId,
+  }) async {
+    final uri = Uri.parse(
+      '$baseUrl/api/chat/sessions/$sessionId/messages/$messageId/pin',
+    );
+    final response = await _httpClient.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+        'accept': 'application/json',
+      },
+      body: jsonEncode(<String, dynamic>{'pin': true}),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AuthApiException(
+        statusCode: response.statusCode,
+        body: response.body,
+      );
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    return ChatMessageModel.fromJson(
+      decoded,
+      currentUserId: currentUserId,
+      fallbackSessionId: sessionId,
+    );
+  }
+
+  Future<ChatMessageModel> unpinMessage({
+    required String accessToken,
+    required String sessionId,
+    required String messageId,
+    required String currentUserId,
+  }) async {
+    final uri = Uri.parse(
+      '$baseUrl/api/chat/sessions/$sessionId/messages/$messageId/pin',
+    );
+    final response = await _httpClient.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+        'accept': 'application/json',
+      },
+      body: jsonEncode(<String, dynamic>{'pin': false}),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AuthApiException(
+        statusCode: response.statusCode,
+        body: response.body,
+      );
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    return ChatMessageModel.fromJson(
+      decoded,
+      currentUserId: currentUserId,
+      fallbackSessionId: sessionId,
+    );
+  }
+
+  Future<ChatMessageModel> deleteMessage({
+    required String accessToken,
+    required String sessionId,
+    required String messageId,
+    required String currentUserId,
+  }) async {
+    final uri = Uri.parse(
+      '$baseUrl/api/chat/sessions/$sessionId/messages/$messageId',
+    );
+    final response = await _httpClient.delete(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AuthApiException(
+        statusCode: response.statusCode,
+        body: response.body,
+      );
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    return ChatMessageModel.fromJson(
+      decoded,
+      currentUserId: currentUserId,
+      fallbackSessionId: sessionId,
+    );
+  }
+
+  Future<void> markAsRead({
+    required String accessToken,
+    required String sessionId,
+  }) async {
+    final uri = Uri.parse(
+      '$baseUrl/api/chat/sessions/$sessionId/read',
+    );
+    final response = await _httpClient.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({}),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AuthApiException(
+        statusCode: response.statusCode,
+        body: response.body,
+      );
+    }
+  }
+
+  Future<void> pinConversation({
+    required String accessToken,
+    required String sessionId,
+    required bool pin,
+  }) async {
+    final uri = Uri.parse(
+      '$baseUrl/api/chat/conversations/$sessionId/pin',
+    );
+    final response = await _httpClient.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'pin': pin}),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AuthApiException(
+        statusCode: response.statusCode,
+        body: response.body,
+      );
+    }
   }
 }

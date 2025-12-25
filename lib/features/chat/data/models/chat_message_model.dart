@@ -11,6 +11,13 @@ class ChatMessageModel extends ChatMessage {
     required super.isMine,
     super.senderAvatarUrl,
     super.type,
+    super.isDeleted,
+    super.isPinned,
+    super.deletedBy,
+    super.deletedAt,
+    super.pinnedBy,
+    super.pinnedByName,
+    super.pinnedAt,
   });
 
   factory ChatMessageModel.fromJson(
@@ -26,6 +33,27 @@ class ChatMessageModel extends ChatMessage {
         createdAt = parsed.isUtc ? parsed.toLocal() : parsed;
       }
     }
+
+    // Parse deletedAt
+    DateTime? deletedAt;
+    final deletedAtRaw = json['deletedAt'];
+    if (deletedAtRaw is String) {
+      final parsed = DateTime.tryParse(deletedAtRaw);
+      if (parsed != null) {
+        deletedAt = parsed.isUtc ? parsed.toLocal() : parsed;
+      }
+    }
+
+    // Parse pinnedAt
+    DateTime? pinnedAt;
+    final pinnedAtRaw = json['pinnedAt'];
+    if (pinnedAtRaw is String) {
+      final parsed = DateTime.tryParse(pinnedAtRaw);
+      if (parsed != null) {
+        pinnedAt = parsed.isUtc ? parsed.toLocal() : parsed;
+      }
+    }
+
     String senderId = '';
     String senderName = '';
     String? senderAvatarUrl;
@@ -62,6 +90,24 @@ class ChatMessageModel extends ChatMessage {
       createdAt: createdAt,
       type: json['type'] as String?,
       isMine: currentUserId != null && currentUserId == senderId,
+      isDeleted: json['isDeleted'] as bool?,
+      isPinned: json['isPinned'] as bool?,
+      deletedBy: json['deletedBy'] as String?,
+      deletedAt: deletedAt,
+      pinnedBy: json['pinnedBy'] is Map ? (json['pinnedBy']['id'] ?? json['pinnedBy']['userId']) as String? : json['pinnedBy'] as String?,
+      pinnedByName: _extractPinnedByName(json['pinnedBy']),
+      pinnedAt: pinnedAt,
     );
+  }
+
+  static String? _extractPinnedByName(dynamic pinnedByData) {
+    if (pinnedByData == null) return null;
+    if (pinnedByData is Map) {
+      return pinnedByData['displayName'] as String? ?? 
+             pinnedByData['name'] as String? ?? 
+             pinnedByData['userName'] as String? ??
+             pinnedByData['fullName'] as String?;
+    }
+    return null;
   }
 }

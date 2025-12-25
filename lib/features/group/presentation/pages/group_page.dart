@@ -10,11 +10,7 @@ import '../widgets/group_card.dart';
 import 'group_detail_page.dart';
 
 class GroupPage extends StatefulWidget {
-  const GroupPage({
-    super.key,
-    required this.session,
-    required this.language,
-  });
+  const GroupPage({super.key, required this.session, required this.language});
 
   final AuthSession session;
   final AppLanguage language;
@@ -90,7 +86,7 @@ class _GroupPageState extends State<GroupPage> {
       (g) => g.id == groupId,
       orElse: () => throw Exception('Group not found'),
     );
-    
+
     final isLeader = currentGroup.role == 'leader';
     final hasOtherMembers = currentGroup.currentMembers > 1;
 
@@ -108,7 +104,7 @@ class _GroupPageState extends State<GroupPage> {
           duration: const Duration(seconds: 3),
         ),
       );
-      
+
       // Mở trang group detail để transfer leader
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -154,9 +150,7 @@ class _GroupPageState extends State<GroupPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(),
-      ),
+      builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
     try {
@@ -188,10 +182,7 @@ class _GroupPageState extends State<GroupPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _translate(
-              'Lỗi: $errorMessage',
-              'Error: $errorMessage',
-            ),
+            _translate('Lỗi: $errorMessage', 'Error: $errorMessage'),
           ),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 4),
@@ -404,9 +395,9 @@ class _GroupPageState extends State<GroupPage> {
   }
 
   Widget _buildTabsSliverToBoxAdapter() {
-    final invitationCount = _controller.invitations.length + 
-        _controller.pendingInvitations.length;
-    
+    final invitationCount =
+        _controller.invitations.length + _controller.pendingInvitations.length;
+
     return SliverToBoxAdapter(
       child: Container(
         color: Colors.white,
@@ -447,9 +438,7 @@ class _GroupPageState extends State<GroupPage> {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: isSelected
-                  ? const Color(0xFF3B5FE5)
-                  : Colors.transparent,
+              color: isSelected ? const Color(0xFF3B5FE5) : Colors.transparent,
               width: 3,
             ),
           ),
@@ -498,18 +487,11 @@ class _GroupPageState extends State<GroupPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                FeatherIcons.users,
-                size: 64,
-                color: Colors.grey[400],
-              ),
+              Icon(FeatherIcons.users, size: 64, color: Colors.grey[400]),
               const SizedBox(height: 16),
               Text(
                 _translate('Chưa có nhóm nào', 'No groups yet'),
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
+                style: const TextStyle(fontSize: 16, color: Colors.grey),
               ),
             ],
           ),
@@ -520,24 +502,20 @@ class _GroupPageState extends State<GroupPage> {
     return SliverPadding(
       padding: const EdgeInsets.all(16),
       sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final group = _controller.groups[index];
-            final progress = _controller.groupProgress[group.id] ?? 0;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: GroupCard(
-                group: group,
-                progress: progress,
-                language: widget.language,
-                onViewTap: () => _navigateToGroupDetail(group.id),
-                onLeaveGroupTap: () =>
-                    _handleLeaveGroup(group.id, group.name),
-              ),
-            );
-          },
-          childCount: _controller.groups.length,
-        ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final group = _controller.groups[index];
+          final progress = _controller.groupProgress[group.id] ?? 0;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: GroupCard(
+              group: group,
+              progress: progress,
+              language: widget.language,
+              onViewTap: () => _navigateToGroupDetail(group.id),
+              onLeaveGroupTap: () => _handleLeaveGroup(group.id, group.name),
+            ),
+          );
+        }, childCount: _controller.groups.length),
       ),
     );
   }
@@ -586,7 +564,10 @@ class _GroupPageState extends State<GroupPage> {
     );
   }
 
-  Widget _buildInvitationTabButton({required int index, required String label}) {
+  Widget _buildInvitationTabButton({
+    required int index,
+    required String label,
+  }) {
     final isSelected = _invitationTabIndex == index;
     final applicationCount = _controller.pendingInvitations
         .where((inv) => inv.type == 'application')
@@ -595,7 +576,7 @@ class _GroupPageState extends State<GroupPage> {
         .where((inv) => inv.type == 'invitation')
         .length;
     final badgeCount = index == 0 ? applicationCount : invitationCount;
-    
+
     return GestureDetector(
       onTap: () => setState(() => _invitationTabIndex = index),
       child: Container(
@@ -652,18 +633,11 @@ class _GroupPageState extends State<GroupPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.inbox_outlined,
-              size: 64,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               _translate('Chưa có đơn xin vào nào', 'No applications yet'),
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
           ],
         ),
@@ -690,18 +664,11 @@ class _GroupPageState extends State<GroupPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.mail_outline,
-              size: 64,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.mail_outline, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               _translate('Chưa có lời mời nào', 'No invitations yet'),
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
           ],
         ),
@@ -718,7 +685,10 @@ class _GroupPageState extends State<GroupPage> {
     );
   }
 
-  Widget _buildInvitationCard(GroupInvitation invitation, {bool showActions = true}) {
+  Widget _buildInvitationCard(
+    GroupInvitation invitation, {
+    bool showActions = true,
+  }) {
     final initials = invitation.displayName.isNotEmpty
         ? invitation.displayName[0].toUpperCase()
         : 'U';
@@ -726,8 +696,8 @@ class _GroupPageState extends State<GroupPage> {
     final timeText = daysAgo == 0
         ? _translate('Hôm nay', 'Today')
         : daysAgo == 1
-            ? _translate('Hôm qua', 'Yesterday')
-            : _translate('$daysAgo ngày trước', '$daysAgo days ago');
+        ? _translate('Hôm qua', 'Yesterday')
+        : _translate('$daysAgo ngày trước', '$daysAgo days ago');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -839,9 +809,7 @@ class _GroupPageState extends State<GroupPage> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          border: Border.all(
-                            color: const Color(0xFFEF4444),
-                          ),
+                          border: Border.all(color: const Color(0xFFEF4444)),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -893,10 +861,7 @@ class _GroupPageState extends State<GroupPage> {
               alignment: Alignment.centerLeft,
               child: Text(
                 timeText,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF9CA3AF),
-                ),
+                style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF)),
               ),
             ),
         ],
@@ -904,4 +869,3 @@ class _GroupPageState extends State<GroupPage> {
     );
   }
 }
-

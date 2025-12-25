@@ -11,6 +11,9 @@ class ChatConversationModel extends ChatConversation {
     super.otherAvatarUrl,
     super.lastMessage,
     super.updatedAt,
+    super.unreadCount,
+    super.isPinned,
+    super.pinnedAt,
   });
 
   factory ChatConversationModel.fromJson(Map<String, dynamic> json) {
@@ -18,6 +21,12 @@ class ChatConversationModel extends ChatConversation {
     final updatedAtRaw = json['updatedAt'];
     if (updatedAtRaw is String && updatedAtRaw.isNotEmpty) {
       updatedAt = DateTime.tryParse(updatedAtRaw);
+    }
+
+    DateTime? pinnedAt;
+    final pinnedAtRaw = json['pinnedAt'];
+    if (pinnedAtRaw is String && pinnedAtRaw.isNotEmpty) {
+      pinnedAt = DateTime.tryParse(pinnedAtRaw);
     }
 
     return ChatConversationModel(
@@ -30,6 +39,9 @@ class ChatConversationModel extends ChatConversation {
       otherAvatarUrl: json['otherAvatarUrl'] as String?,
       lastMessage: json['lastMessage'] as String?,
       updatedAt: updatedAt,
+      unreadCount: json['unreadCount'] as int? ?? 0,
+      isPinned: json['isPinned'] as bool? ?? false,
+      pinnedAt: pinnedAt,
     );
   }
 
@@ -38,6 +50,12 @@ class ChatConversationModel extends ChatConversation {
     final updatedAtRaw = json['updatedAt'];
     if (updatedAtRaw is String && updatedAtRaw.isNotEmpty) {
       updatedAt = DateTime.tryParse(updatedAtRaw);
+    }
+
+    DateTime? pinnedAt;
+    final pinnedAtRaw = json['pinnedAt'];
+    if (pinnedAtRaw is String && pinnedAtRaw.isNotEmpty) {
+      pinnedAt = DateTime.tryParse(pinnedAtRaw);
     }
 
     final groupId = json['id'] as String? ?? '';
@@ -52,6 +70,9 @@ class ChatConversationModel extends ChatConversation {
       otherAvatarUrl: null,
       lastMessage: json['description'] as String?,
       updatedAt: updatedAt,
+      unreadCount: json['unreadCount'] as int? ?? 0,
+      isPinned: json['isPinned'] as bool? ?? false,
+      pinnedAt: pinnedAt,
     );
   }
 }

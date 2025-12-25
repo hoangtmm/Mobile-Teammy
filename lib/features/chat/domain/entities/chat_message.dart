@@ -9,6 +9,13 @@ class ChatMessage {
     required this.isMine,
     this.senderAvatarUrl,
     this.type,
+    this.isDeleted,
+    this.isPinned,
+    this.deletedBy,
+    this.deletedAt,
+    this.pinnedBy,
+    this.pinnedByName,
+    this.pinnedAt,
   });
 
   final String messageId;
@@ -20,4 +27,11 @@ class ChatMessage {
   final DateTime createdAt;
   final bool isMine;
   final String? type;
+  final bool? isDeleted;
+  final bool? isPinned;
+  final String? deletedBy;
+  final DateTime? deletedAt;
+  final String? pinnedBy;
+  final String? pinnedByName;
+  final DateTime? pinnedAt;
 }

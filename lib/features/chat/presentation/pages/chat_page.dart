@@ -9,6 +9,7 @@ import '../../data/datasources/chat_remote_data_source.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../data/services/chat_hub_service.dart';
 import '../../domain/entities/chat_conversation.dart';
+import '../../domain/entities/chat_message.dart';
 import 'chat_detail_page.dart';
 
 class ChatPage extends StatefulWidget {
@@ -31,6 +32,12 @@ class _ChatPageState extends State<ChatPage> {
   late final ChatRepository _repository = ChatRepository(
     remoteDataSource: ChatRemoteDataSource(baseUrl: kApiBaseUrl),
   );
+  
+  late final ChatHubService _hubService = ChatHubService(
+    baseUrl: kApiBaseUrl,
+    accessToken: widget.session.accessToken,
+    currentUserId: widget.session.userId,
+  );
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -38,16 +45,21 @@ class _ChatPageState extends State<ChatPage> {
   bool _loading = true;
   String? _errorMessage;
   _ChatFilter _filter = _ChatFilter.recent;
+  
+  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadConversations();
+    _startAutoRefresh();
   }
 
   @override
   void dispose() {
+    _autoRefreshTimer?.cancel();
     _searchController.dispose();
+    _hubService.dispose();
     super.dispose();
   }
 
@@ -77,14 +89,180 @@ class _ChatPageState extends State<ChatPage> {
         _conversations = uniqueItems;
         _loading = false;
       });
+      
+      // Join all conversations to receive realtime updates
+      print('[ChatPage] Loaded ${uniqueItems.length} conversations');
+      _joinAllConversations(uniqueItems);
     } catch (error) {
       if (!mounted) return;
-      print('[ChatPage] Error loading conversations: $error');
       setState(() {
         _errorMessage = error.toString();
         _loading = false;
       });
     }
+  }
+
+  Future<void> _joinAllConversations(List<ChatConversation> conversations) async {
+    try {
+      print('[ChatPage] Joining ${conversations.length} conversations...');
+      // Ensure hub connection is established first
+      await Future.delayed(const Duration(milliseconds: 1000));
+      
+      for (final conv in conversations) {
+        if (conv.isGroup && conv.groupId?.isNotEmpty == true) {
+          print('[ChatPage] Joining group: ${conv.groupId}');
+          _hubService.joinGroup(conv.groupId!).catchError((e) {
+            print('[ChatPage] Error joining group: $e');
+          });
+        } else {
+          print('[ChatPage] Joining session: ${conv.sessionId}');
+          _hubService.joinSession(conv.sessionId).catchError((e) {
+            print('[ChatPage] Error joining session: $e');
+          });
+        }
+        // Small delay between joins
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      print('[ChatPage] Finished joining all conversations');
+    } catch (e) {
+      print('[ChatPage] Error in _joinAllConversations: $e');
+    }
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
+      if (!mounted) return;
+      try {
+        final items = await _repository.fetchConversations(
+          accessToken: widget.session.accessToken,
+        );
+        if (!mounted) return;
+        
+        // Remove duplicates by sessionId/groupId
+        final seen = <String>{};
+        final uniqueItems = <ChatConversation>[];
+        for (final item in items) {
+          final id = item.isGroup ? (item.groupId ?? '') : item.sessionId;
+          if (!seen.contains(id)) {
+            seen.add(id);
+            uniqueItems.add(item);
+          }
+        }
+        
+        // Only update UI if data changed
+        if (uniqueItems.length != _conversations.length ||
+            uniqueItems.asMap().entries.any((e) => 
+              e.value.lastMessage != _conversations[e.key].lastMessage ||
+              e.value.unreadCount != _conversations[e.key].unreadCount
+            )) {
+          if (mounted) {
+            setState(() {
+              _conversations = uniqueItems;
+            });
+          }
+        }
+      } catch (e) {
+        // Silent fail
+      }
+    });
+  }
+
+  Future<void> _markAsRead(String sessionId) async {
+    try {
+      await _repository.markAsRead(
+        accessToken: widget.session.accessToken,
+        sessionId: sessionId,
+      );
+      
+      // Update unreadCount to 0 in local state
+      final index = _conversations.indexWhere((c) => c.sessionId == sessionId);
+      if (index >= 0) {
+        final conversation = _conversations[index];
+        _conversations[index] = ChatConversation(
+          sessionId: conversation.sessionId,
+          type: conversation.type,
+          groupId: conversation.groupId,
+          groupName: conversation.groupName,
+          otherUserId: conversation.otherUserId,
+          otherDisplayName: conversation.otherDisplayName,
+          otherAvatarUrl: conversation.otherAvatarUrl,
+          lastMessage: conversation.lastMessage,
+          updatedAt: conversation.updatedAt,
+          unreadCount: 0,
+          isPinned: conversation.isPinned,
+          pinnedAt: conversation.pinnedAt,
+        );
+        if (mounted) setState(() {});
+      }
+    } catch (e) {
+    }
+  }
+
+  Future<void> _togglePin(ChatConversation conversation) async {
+    try {
+      await _repository.pinConversation(
+        accessToken: widget.session.accessToken,
+        sessionId: conversation.sessionId,
+        pin: !conversation.isPinned,
+      );
+      
+      // Update pinned state in local state
+      final index = _conversations.indexWhere((c) => c.sessionId == conversation.sessionId);
+      if (index >= 0) {
+        final conv = _conversations[index];
+        _conversations[index] = ChatConversation(
+          sessionId: conv.sessionId,
+          type: conv.type,
+          groupId: conv.groupId,
+          groupName: conv.groupName,
+          otherUserId: conv.otherUserId,
+          otherDisplayName: conv.otherDisplayName,
+          otherAvatarUrl: conv.otherAvatarUrl,
+          lastMessage: conv.lastMessage,
+          updatedAt: conv.updatedAt,
+          unreadCount: conv.unreadCount,
+          isPinned: !conv.isPinned,
+          pinnedAt: !conv.isPinned ? DateTime.now() : null,
+        );
+        if (mounted) setState(() {});
+      }
+    } catch (e) {
+    }
+  }
+
+  void _showPinMenu(BuildContext context, ChatConversation conversation) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!conversation.isPinned)
+              ListTile(
+                leading: const Icon(Icons.push_pin, color: Color(0xFF2563EB)),
+                title: const Text('Ghim'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _togglePin(conversation);
+                },
+              ),
+            if (conversation.isPinned)
+              ListTile(
+                leading: const Icon(Icons.push_pin, color: Color(0xFFF59E0B)),
+                title: const Text('Bỏ ghim'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _togglePin(conversation);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   String _t(String vi, String en) =>
@@ -105,6 +283,17 @@ class _ChatPageState extends State<ChatPage> {
       final message = (conversation.lastMessage ?? '').toLowerCase();
       return name.contains(query) || message.contains(query);
     }).toList()..sort((a, b) {
+      // Sort by: isPinned desc → pinnedAt desc → updatedAt desc
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      
+      if (a.isPinned && b.isPinned) {
+        final aPinned = a.pinnedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bPinned = b.pinnedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final pinnedCompare = bPinned.compareTo(aPinned);
+        if (pinnedCompare != 0) return pinnedCompare;
+      }
+      
       final aTime = a.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       final bTime = b.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       return bTime.compareTo(aTime);
@@ -334,6 +523,7 @@ class _ChatPageState extends State<ChatPage> {
           language: widget.language,
           updatedLabel: _formatUpdatedAt(conversation.updatedAt),
           onTap: () {
+            _markAsRead(conversation.sessionId);
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => ChatDetailPage(
@@ -345,6 +535,7 @@ class _ChatPageState extends State<ChatPage> {
               ),
             );
           },
+          onLongPress: () => _showPinMenu(context, conversation),
         );
       },
       separatorBuilder: (_, index) => const SizedBox(height: 12),
@@ -400,12 +591,14 @@ class _ConversationTile extends StatelessWidget {
     required this.language,
     required this.updatedLabel,
     required this.onTap,
+    this.onLongPress,
   });
 
   final ChatConversation conversation;
   final AppLanguage language;
   final String updatedLabel;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -426,6 +619,7 @@ class _ConversationTile extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
           onTap: onTap,
+          onLongPress: onLongPress,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             child: Row(
@@ -447,9 +641,11 @@ class _ConversationTile extends StatelessWidget {
                                   : (language == AppLanguage.vi
                                         ? 'Trò chuyện'
                                         : 'Chat')),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: conversation.unreadCount > 0 
+                              ? FontWeight.w700 
+                              : FontWeight.w600,
                           color: Color(0xFF1F2A37),
                         ),
                       ),
@@ -462,9 +658,14 @@ class _ConversationTile extends StatelessWidget {
                                   : 'No messages yet'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF6B7280),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: conversation.unreadCount > 0
+                              ? FontWeight.w800
+                              : FontWeight.w400,
+                          color: conversation.unreadCount > 0
+                              ? const Color(0xFF1F2A37)
+                              : const Color(0xFF6B7280),
                         ),
                       ),
                     ],
@@ -475,20 +676,56 @@ class _ConversationTile extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      updatedLabel,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF9CA3AF),
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (conversation.isPinned)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 4),
+                            child: Icon(
+                              Icons.push_pin,
+                              size: 14,
+                              color: Color(0xFFF59E0B),
+                            ),
+                          ),
+                        Text(
+                          updatedLabel,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF9CA3AF),
+                          ),
+                        ),
+                      ],
                     ),
-                    if (conversation.isGroup)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 6),
-                        child: Icon(
-                          Icons.push_pin_outlined,
-                          size: 16,
-                          color: Color(0xFFFF8A3C),
+                    if (conversation.isPinned)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Bỏ ghim',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF9CA3AF),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                    if (conversation.unreadCount > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            conversation.unreadCount > 99 ? '99+' : conversation.unreadCount.toString(),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
                   ],
