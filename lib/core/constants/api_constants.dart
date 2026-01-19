@@ -25,12 +25,16 @@ class ApiPath {
   static const postGetGroup = '/api/recruitment-posts';
   static const postPersonal = '/api/profile-posts';
   static const postGroup = '/api/recruitment-posts';
+  static String recruitmentPostsByGroup(String groupId) =>
+      '/api/recruitment-posts/group/$groupId';
 
   /// Group endpoints.
   static const groupMembership = '/api/groups/membership';
   static const groupsMyGroups = '/api/groups/my';
   static String groupTracking(String groupId) =>
       '/api/groups/$groupId/tracking/reports/project';
+  static String groupTrackingScores(String groupId) =>
+      '/api/groups/$groupId/tracking/scores';
   static String groupBoard(String groupId) => '/api/groups/$groupId/board';
   static String boardTaskComments(String groupId, String taskId) =>
       '/api/groups/$groupId/board/tasks/$taskId/comments';
@@ -66,6 +70,10 @@ class ApiPath {
   static String groupMembers(String groupId) => '/api/groups/$groupId/members';
   static String groupInvite(String groupId) => '/api/groups/$groupId/invites';
   static String groupUpdate(String groupId) => '/api/groups/$groupId';
+  static String groupActivate(String groupId) => '/api/groups/$groupId/activate';
+  static String groupFeedback(String groupId) => '/api/groups/$groupId/feedback';
+  static String groupFeedbackStatus(String groupId, String feedbackId) =>
+      '/api/groups/$groupId/feedback/$feedbackId/status';
 
   /// Major endpoints.
   static const majors = '/api/majors';

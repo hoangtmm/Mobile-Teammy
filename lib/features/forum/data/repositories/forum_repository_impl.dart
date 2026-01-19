@@ -1,7 +1,9 @@
 import '../../domain/entities/forum_membership.dart';
 import '../../domain/entities/forum_post.dart';
+import '../../domain/entities/forum_post_suggestion.dart';
 import '../../domain/repositories/forum_repository.dart';
 import '../datasources/forum_remote_data_source.dart';
+import '../models/forum_post_model.dart';
 
 class ForumRepositoryImpl implements ForumRepository {
   ForumRepositoryImpl({required this.remoteDataSource});
@@ -91,6 +93,95 @@ class ForumRepositoryImpl implements ForumRepository {
     required String major,
   }) async {
     return await remoteDataSource.fetchSkills(accessToken, major: major);
+  }
+
+  @override
+  Future<List<ForumPostSuggestion>> fetchRecruitmentSuggestions(
+    String accessToken, {
+    required String majorId,
+    int? limit,
+  }) async {
+    final result = await remoteDataSource.fetchRecruitmentSuggestions(
+      accessToken,
+      majorId: majorId,
+      limit: limit,
+    );
+    return result
+        .map(
+          (e) => _mapSuggestion(e),
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<ForumPostSuggestion>> fetchProfileSuggestions(
+    String accessToken, {
+    required String groupId,
+    int? limit,
+  }) async {
+    final result = await remoteDataSource.fetchProfileSuggestions(
+      accessToken,
+      groupId: groupId,
+      limit: limit,
+    );
+    return result
+        .map(
+          (e) => _mapSuggestion(e),
+        )
+        .toList(growable: false);
+  }
+
+  ForumPostSuggestion _mapSuggestion(Map<String, dynamic> json) {
+    final postJson = json['post'] ?? json['profilePost'];
+    final post = postJson is Map<String, dynamic>
+        ? ForumPostModel.fromJson(postJson)
+        : ForumPostModel.fromJson(json);
+
+    List<String> parseList(dynamic raw) {
+      if (raw is List) {
+        return raw
+            .whereType<String>()
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }
+      if (raw is String) {
+        return raw
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }
+      return const [];
+    }
+
+    return ForumPostSuggestion(
+      post: post,
+      scorePercent: json['scorePercent'] as int?,
+      aiReason: json['aiReason']?.toString(),
+      aiBalanceNote: json['aiBalanceNote']?.toString(),
+      desiredPosition: json['desired_position']?.toString(),
+      matchingSkills: parseList(json['matchingSkills']),
+      requiredSkills: parseList(json['requiredSkills']),
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> generateRecruitmentPostDraft(
+    String accessToken, {
+    required String groupId,
+  }) async {
+    return await remoteDataSource.generateRecruitmentPostDraft(
+      accessToken,
+      groupId: groupId,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> generatePersonalPostDraft(
+    String accessToken,
+  ) async {
+    return await remoteDataSource.generatePersonalPostDraft(accessToken);
   }
 
   @override

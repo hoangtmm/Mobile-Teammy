@@ -11,8 +11,6 @@ class GroupMentorDataSource {
     http.Client? httpClient,
   }) : _httpClient = httpClient ?? http.Client();
 
-  /// Gửi lời mời mentor cho nhóm
-  /// POST /api/groups/{groupId}/mentor-invites
   Future<void> inviteMentor({
     required String accessToken,
     required String groupId,
@@ -49,7 +47,6 @@ class GroupMentorDataSource {
       final errorMessage = response.body;
       print('[MENTOR DATA SOURCE] Error details: $errorMessage');
       
-      // Throw different exceptions based on error message
       if (errorMessage.contains('Mentor is not assigned to this topic')) {
         throw MentorNotAssignedToTopicException(errorMessage);
       } else {

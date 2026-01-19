@@ -2,35 +2,23 @@ import '../../domain/entities/group_invitation.dart';
 
 class InvitationModel extends GroupInvitation {
   const InvitationModel({
-    required String type,
-    required String id,
-    required String userId,
-    required String email,
-    required String displayName,
-    required String avatarUrl,
-    required DateTime createdAt,
-    String? postId,
-    String? message,
-    String? topicId,
-    String? topicTitle,
+    required super.type,
+    required super.id,
+    required super.userId,
+    required super.email,
+    required super.displayName,
+    required super.avatarUrl,
+    required super.createdAt,
+    super.postId,
+    super.message,
+    super.topicId,
+    super.topicTitle,
     required this.invitationId,
     required this.groupId,
     required this.groupName,
     required this.status,
     required this.invitedBy,
-  }) : super(
-    type: type,
-    id: id,
-    postId: postId,
-    userId: userId,
-    email: email,
-    displayName: displayName,
-    avatarUrl: avatarUrl,
-    createdAt: createdAt,
-    message: message,
-    topicId: topicId,
-    topicTitle: topicTitle,
-  );
+  });
 
   final String invitationId;
   final String groupId;

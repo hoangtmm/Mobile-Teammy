@@ -84,6 +84,7 @@ class _CreateRecruitmentPostFormState
 
   DateTime? _expiresAt;
   bool _submitting = false;
+  bool _generatingDraft = false;
 
   // ==== SKILL STATE ====
   final List<String> _selectedSkills = [];
@@ -207,6 +208,98 @@ class _CreateRecruitmentPostFormState
         _selectedSkills.add(name);
       }
     });
+  }
+
+  List<String> _parseDraftSkills(dynamic raw) {
+    if (raw is List) {
+      return raw
+          .whereType<String>()
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+    if (raw is String) {
+      return raw
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+    return const [];
+  }
+
+  DateTime? _parseDraftDate(dynamic raw) {
+    if (raw is String && raw.isNotEmpty) {
+      return DateTime.tryParse(raw);
+    }
+    return null;
+  }
+
+  Future<void> _generateDraft() async {
+    final groupId = _groupIdController.text.trim();
+    if (groupId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _t('Không tìm thấy thông tin nhóm', 'Group information not found'),
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _generatingDraft = true);
+    try {
+      final draft = await widget.repository.generateRecruitmentPostDraft(
+        widget.session.accessToken,
+        groupId: groupId,
+      );
+
+      final title = draft['title']?.toString();
+      final description = draft['description']?.toString();
+      final positionNeeded = draft['positionNeed'] ??
+          draft['positionNeeded'] ??
+          draft['position_needed'];
+      final skills = _parseDraftSkills(
+        draft['requiredSkills'] ?? draft['skills'],
+      );
+      final expiresAt = _parseDraftDate(draft['expiresAt']);
+
+      if (!mounted) return;
+      setState(() {
+        if (title != null && title.isNotEmpty) {
+          _titleController.text = title;
+        }
+        if (description != null && description.isNotEmpty) {
+          _descriptionController.text = description;
+        }
+        if (positionNeeded != null && positionNeeded.toString().isNotEmpty) {
+          _positionController.text = positionNeeded.toString();
+        }
+        if (skills.isNotEmpty) {
+          _selectedSkills
+            ..clear()
+            ..addAll(skills.toSet());
+        }
+        if (expiresAt != null) {
+          _expiresAt = expiresAt;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _t('Không thể tạo gợi ý: $e', 'Failed to generate draft: $e'),
+          ),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _generatingDraft = false);
+      }
+    }
   }
 
   Widget _buildSkillCategoryChips() {
@@ -471,6 +564,17 @@ class _CreateRecruitmentPostFormState
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+              ),
+              TextButton.icon(
+                onPressed: _generatingDraft ? null : _generateDraft,
+                icon: _generatingDraft
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.auto_awesome, size: 18),
+                label: Text(_t('Gợi ý AI', 'AI Draft')),
               ),
               IconButton(
                 icon: const Icon(Icons.close),

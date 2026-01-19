@@ -142,4 +142,14 @@ class ChatRepository {
       pin: pin,
     );
   }
+
+  Future<ChatConversation> createDirectConversation({
+    required String accessToken,
+    required String otherUserId,
+  }) {
+    return remoteDataSource.createDirectConversation(
+      accessToken: accessToken,
+      otherUserId: otherUserId,
+    );
+  }
 }

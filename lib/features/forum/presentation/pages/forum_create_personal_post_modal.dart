@@ -54,6 +54,7 @@ class _CreatePersonalPostFormState extends State<_CreatePersonalPostForm> {
   final _descriptionController = TextEditingController();
 
   bool _submitting = false;
+  bool _generatingDraft = false;
 
   String _t(String vi, String en) =>
       widget.language == AppLanguage.vi ? vi : en;
@@ -97,6 +98,42 @@ class _CreatePersonalPostFormState extends State<_CreatePersonalPostForm> {
     }
   }
 
+  Future<void> _generateDraft() async {
+    setState(() => _generatingDraft = true);
+    try {
+      final draft = await widget.repository.generatePersonalPostDraft(
+        widget.session.accessToken,
+      );
+
+      final title = draft['title']?.toString();
+      final description = draft['description']?.toString();
+
+      if (!mounted) return;
+      setState(() {
+        if (title != null && title.isNotEmpty) {
+          _titleController.text = title;
+        }
+        if (description != null && description.isNotEmpty) {
+          _descriptionController.text = description;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _t('Không thể tạo gợi ý: $e', 'Failed to generate draft: $e'),
+          ),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _generatingDraft = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final userSkills = _getUserSkills();
@@ -120,6 +157,17 @@ class _CreatePersonalPostFormState extends State<_CreatePersonalPostForm> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+              ),
+              TextButton.icon(
+                onPressed: _generatingDraft ? null : _generateDraft,
+                icon: _generatingDraft
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.auto_awesome, size: 18),
+                label: Text(_t('Gợi ý AI', 'AI Draft')),
               ),
               IconButton(
                 icon: const Icon(Icons.close),

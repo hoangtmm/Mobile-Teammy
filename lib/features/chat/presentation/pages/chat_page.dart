@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/localization/app_language.dart';
 import '../../../auth/domain/entities/auth_session.dart';
+import '../../../timeline/presentation/widgets/navigation_drawer_widget.dart';
 import '../../data/datasources/chat_remote_data_source.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../data/services/chat_hub_service.dart';
 import '../../domain/entities/chat_conversation.dart';
-import '../../domain/entities/chat_message.dart';
 import 'chat_detail_page.dart';
 
 class ChatPage extends StatefulWidget {
@@ -47,6 +47,8 @@ class _ChatPageState extends State<ChatPage> {
   _ChatFilter _filter = _ChatFilter.recent;
   
   Timer? _autoRefreshTimer;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  int _selectedDrawerIndex = 3;
 
   @override
   void initState() {
@@ -302,29 +304,48 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFFF7F7F7),
-      child: Column(
-        children: [
-          _buildHeader(),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _buildSearchField(),
-          ),
-          const SizedBox(height: 12),
-          _buildFilterRow(),
-          const SizedBox(height: 8),
-          Expanded(
-            child: RefreshIndicator(
-              color: const Color(0xFF5DADE2),
-              onRefresh: _loadConversations,
-              child: _buildConversationList(),
+    return Scaffold(
+      key: _scaffoldKey,
+      drawer: NavigationDrawerWidget(
+        selectedIndex: _selectedDrawerIndex,
+        onItemSelected: (index) {
+          setState(() {
+            _selectedDrawerIndex = index;
+          });
+          Navigator.of(context).pop();
+          _handleDrawerNavigation(index);
+        },
+        language: widget.language,
+      ),
+      body: Container(
+        color: const Color(0xFFF7F7F7),
+        child: Column(
+          children: [
+            _buildHeader(),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildSearchField(),
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            _buildFilterRow(),
+            const SizedBox(height: 8),
+            Expanded(
+              child: RefreshIndicator(
+                color: const Color(0xFF5DADE2),
+                onRefresh: _loadConversations,
+                child: _buildConversationList(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  void _handleDrawerNavigation(int index) {
+    // Navigation handled by MainPage
+    // This is just a placeholder to close drawer
   }
 
   Widget _buildHeader() {

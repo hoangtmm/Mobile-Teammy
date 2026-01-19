@@ -116,7 +116,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: _selectedPosition,
+                  initialValue: _selectedPosition,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
                     contentPadding: EdgeInsets.symmetric(

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import '../../../../core/services/notification_service.dart';
 import '../../data/services/group_invitation_service.dart';
 import '../../data/datasources/invitation_remote_data_source.dart';
 import '../../data/repositories/invitation_repository.dart';

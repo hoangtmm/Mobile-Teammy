@@ -2,6 +2,7 @@ import '../entities/group.dart';
 import '../entities/group_member.dart';
 import '../entities/major.dart';
 import '../entities/skill.dart';
+import '../entities/tracking_scores.dart';
 
 abstract class GroupRepository {
   /// Lấy danh sách nhóm của user
@@ -12,6 +13,17 @@ abstract class GroupRepository {
     String accessToken,
     String groupId,
   );
+
+  /// Lấy tracking scores của nhóm
+  Future<TrackingScores> fetchTrackingScores(
+    String accessToken,
+    String groupId, {
+    String? from,
+    String? to,
+    int? high,
+    int? medium,
+    int? low,
+  });
 
   /// Lấy danh sách majors
   Future<List<Major>> fetchMajors(String accessToken);

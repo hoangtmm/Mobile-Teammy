@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/localization/app_language.dart';
 import '../../../auth/domain/entities/auth_session.dart';
+import '../../../timeline/presentation/widgets/navigation_drawer_widget.dart';
 import '../../domain/entities/backlog.dart';
 import '../../domain/entities/board.dart';
 import '../../domain/entities/milestone.dart';
@@ -43,6 +44,8 @@ class _TasksPageState extends State<TasksPage>
 
   late final TasksController _controller;
   late final TabController _tabController;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  int _selectedDrawerIndex = 1;
 
   @override
   void initState() {
@@ -63,6 +66,11 @@ class _TasksPageState extends State<TasksPage>
 
   String _translate(String vi, String en) =>
       widget.language == AppLanguage.vi ? vi : en;
+
+  void _handleDrawerNavigation(int index) {
+    // Navigation handled by MainPage
+    // This is just a placeholder to close drawer
+  }
 
   Future<void> _showKanbanActions() async {
     await showModalBottomSheet<void>(
@@ -255,8 +263,7 @@ class _TasksPageState extends State<TasksPage>
         : selectedColumn.columnName;
     String? selectedPriority = task?.priority ?? 'Medium';
     final List<String> priorityOptions = [..._priorityOptions];
-    if (selectedPriority != null &&
-        !priorityOptions.contains(selectedPriority)) {
+    if (!priorityOptions.contains(selectedPriority)) {
       priorityOptions.add(selectedPriority);
     }
     String? selectedBacklogId =
@@ -311,7 +318,7 @@ class _TasksPageState extends State<TasksPage>
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: selectedColumn.columnId,
+                  initialValue: selectedColumn.columnId,
                   decoration: InputDecoration(
                     labelText: _translate('Cột', 'Column'),
                   ),
@@ -352,7 +359,7 @@ class _TasksPageState extends State<TasksPage>
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
-                  value: selectedPriority,
+                  initialValue: selectedPriority,
                   decoration: InputDecoration(
                     labelText: _translate('Độ ưu tiên', 'Priority'),
                   ),
@@ -371,7 +378,7 @@ class _TasksPageState extends State<TasksPage>
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: selectedStatus,
+                  initialValue: selectedStatus,
                   decoration: InputDecoration(
                     labelText: _translate('Trạng thái', 'Status'),
                   ),
@@ -416,7 +423,7 @@ class _TasksPageState extends State<TasksPage>
                   },
                 ),
                 DropdownButtonFormField<String?>(
-                  value: selectedBacklogId,
+                  initialValue: selectedBacklogId,
                   decoration: InputDecoration(
                     labelText: _translate(
                       'Liên kết backlog',
@@ -667,7 +674,7 @@ class _TasksPageState extends State<TasksPage>
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: selected.columnId,
+                    initialValue: selected.columnId,
                     decoration: InputDecoration(
                       labelText: _translate('Cột mới', 'Target column'),
                     ),
@@ -910,7 +917,7 @@ class _TasksPageState extends State<TasksPage>
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: selectedPriority,
+                    initialValue: selectedPriority,
                     decoration: InputDecoration(
                       labelText: _translate('Độ ưu tiên', 'Priority'),
                     ),
@@ -929,7 +936,7 @@ class _TasksPageState extends State<TasksPage>
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: selectedCategory,
+                    initialValue: selectedCategory,
                     decoration: InputDecoration(
                       labelText: _translate('Danh mục', 'Category'),
                     ),
@@ -970,7 +977,7 @@ class _TasksPageState extends State<TasksPage>
                     ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: selectedOwnerId,
+                    initialValue: selectedOwnerId,
                     decoration: InputDecoration(
                       labelText: _translate('Người phụ trách', 'Owner'),
                     ),
@@ -1141,7 +1148,7 @@ class _TasksPageState extends State<TasksPage>
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: columnId,
+                  initialValue: columnId,
                   decoration: InputDecoration(
                     labelText: _translate('Chọn cột', 'Select column'),
                   ),
@@ -1493,7 +1500,19 @@ class _TasksPageState extends State<TasksPage>
             _controller.groups.isNotEmpty &&
             _controller.selectedGroupId != null;
         return Scaffold(
+          key: _scaffoldKey,
           backgroundColor: const Color(0xFFF7F7F7),
+          drawer: NavigationDrawerWidget(
+            selectedIndex: _selectedDrawerIndex,
+            onItemSelected: (index) {
+              setState(() {
+                _selectedDrawerIndex = index;
+              });
+              Navigator.of(context).pop();
+              _handleDrawerNavigation(index);
+            },
+            language: widget.language,
+          ),
           floatingActionButton: showFab ? _buildFloatingActionButton() : null,
           body: _buildBody(),
         );
