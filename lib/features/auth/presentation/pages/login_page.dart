@@ -18,11 +18,9 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  String? _selectedCampus;
+  String? _selectedCampus = 'Campus: FU-Hồ Chí Minh';
   final _campuses = const [
-    'Hanoi Campus',
-    'Ho Chi Minh Campus',
-    'Da Nang Campus',
+    'Campus: FU-Hồ Chí Minh',
   ];
   late final AuthRepository _authRepository;
   late AppLanguage _language;
@@ -242,35 +240,26 @@ class _LoginCard extends StatelessWidget {
           const SizedBox(height: 24),
         
           const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            initialValue: selectedCampus,
-            items: campuses
-                .map(
-                  (campus) => DropdownMenuItem<String>(
-                    value: campus,
-                    child: Text(campus),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: RichText(
+              text: const TextSpan(
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF62718D),
+                ),
+                children: [
+                  TextSpan(text: 'Campus: '),
+                  TextSpan(
+                    text: 'FU-Hồ Chí Minh',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1E2448),
+                    ),
                   ),
-                )
-                .toList(),
-            onChanged: onCampusChanged,
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 14,
-              ),
-              filled: true,
-              fillColor: Colors.white,
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(22),
-                borderSide: const BorderSide(color: Color(0xFFE0E4F2)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(22),
-                borderSide: const BorderSide(color: Color(0xFF5161F1)),
+                ],
               ),
             ),
-            hint: Text(tr('Chọn cơ sở', 'Select Campus')),
-            icon: const Icon(Icons.keyboard_arrow_down_rounded),
           ),
           const SizedBox(height: 20),
           OutlinedButton.icon(

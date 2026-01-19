@@ -302,10 +302,12 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
                           onExpandedChanged: (value) =>
                               setState(() => _skillsExpanded = value),
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _blueField(
-                                controller: _skillsCtrl,
-                                label:'',
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: _buildSkillChips(),
                               ),
                             ],
                           ),
@@ -361,6 +363,41 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
         ),
       ),
     );
+  }
+
+  List<Widget> _buildSkillChips() {
+    final skillsText = _skillsCtrl.text.trim();
+    if (skillsText.isEmpty) return [];
+    
+    final skills = skillsText.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    final skillColors = {
+      'aspnetcore': (bg: const Color(0xFFE3EFFF), text: const Color(0xFF1E5BA8)),
+      'postgresql': (bg: const Color(0xFFDFF9E8), text: const Color(0xFF0F7B3A)),
+      'redis': (bg: const Color(0xFFF3E8FF), text: const Color(0xFF7B1FA2)),
+      'csharp': (bg: const Color(0xFFFFE9DB), text: const Color(0xFFD84315)),
+      'dotnet': (bg: const Color(0xFFFFE0F0), text: const Color(0xFFD81B60)),
+    };
+    
+    return skills.map((skill) {
+      final colorScheme = skillColors[skill.toLowerCase()] ?? 
+                          (bg: const Color(0xFFE3EFFF), text: const Color(0xFF1E5BA8));
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: colorScheme.bg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: colorScheme.text.withOpacity(0.3)),
+        ),
+        child: Text(
+          skill,
+          style: TextStyle(
+            color: colorScheme.text,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }).toList();
   }
 
   Widget _flatField({
